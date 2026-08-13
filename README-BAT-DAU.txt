@@ -1,4 +1,4 @@
-ONG CHU MMO LIVE - FULL SOURCE, GIAY PHEP MIT
+Toandn LIVE - FULL SOURCE, GIAY PHEP MIT
 
 Noi dung goi:
 - UnityProject: toan bo source Unity, scene, script va asset cua game.
@@ -33,6 +33,5 @@ Luu y:
 - Xem file LICENSE de biet chi tiet giay phep MIT.
 
 Lien he:
-- Website : https://ongchummo.com
-- Zalo    : 0977.896.644
-- Email   : toanhvan90@gmail.com
+- Website : https://toandn9x.github.io/mybio/
+- Email   : toandn9x@gmail.com

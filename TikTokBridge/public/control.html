@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ÔNG CHÚ MMO — TikTok Live</title>
+    <title>Toandn — TikTok Live</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg">
     <link rel="apple-touch-icon" href="/favicon.svg">
     <link rel="stylesheet" href="control.css">
@@ -13,8 +13,8 @@
 <!-- ═══════════ NAVBAR ═══════════ -->
 <nav class="navbar">
     <div class="navbar-brand">
-        <img src="/favicon.svg" alt="ÔNG CHÚ MMO">
-        <span class="navbar-brand-text">ÔNG CHÚ MMO <span>Live</span></span>
+        <img src="/favicon.svg" alt="Toandn">
+        <span class="navbar-brand-text">Toandn <span>Live</span></span>
     </div>
     <div class="tab-nav">
         <button class="tab-btn active" data-tab="live">🔴 Live</button>
@@ -29,7 +29,7 @@
             <span class="status-dot" id="status-dot"></span>
             <span id="status-title">Đang kết nối</span>
         </div>
-        <span class="navbar-copy">© 2025 ÔNG CHÚ MMO</span>
+        <span class="navbar-copy">© 2025 Toandn</span>
     </div>
 </nav>
 
@@ -68,6 +68,27 @@
             <p class="help">Mở TikFinity Desktop → kết nối tài khoản LIVE → quay lại đây nhập username.</p>
             <div class="divider"></div>
             <button id="disconnect" class="btn btn-secondary btn-full">Ngắt kết nối</button>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
+                    <p class="card-label">EulerStream</p>
+                    <h2 class="card-title">🌐 Kết nối trực tiếp</h2>
+                </div>
+            </div>
+            <label class="field-label" for="euler-username">Username đang live</label>
+            <div class="input-row">
+                <input id="euler-username" type="text" maxlength="25" placeholder="@username" autocomplete="off">
+            </div>
+            <label class="field-label" for="euler-api-key">API key EulerStream</label>
+            <div class="input-row">
+                <input id="euler-api-key" type="password" maxlength="512" placeholder="Dán API key" autocomplete="off">
+                <button id="euler-connect" class="btn btn-primary">Kết nối</button>
+            </div>
+            <p class="help" id="euler-help">Không cần mở TikFinity. Lấy API key tại eulerstream.com rồi dán vào đây.</p>
+            <div class="divider"></div>
+            <button id="euler-disconnect" class="btn btn-secondary btn-full">Ngắt kết nối</button>
         </div>
 
         <div class="card">
@@ -272,6 +293,70 @@
             <div class="stat-item"><p class="stat-label">♥ Like</p><p class="stat-value" id="metric-likes">0</p></div>
         </div>
     </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <p class="card-label">Lịch sử</p>
+                <h2 class="card-title">📈 Báo cáo theo ngày</h2>
+            </div>
+            <div class="card-actions">
+                <select id="report-metric" class="report-select">
+                    <option value="diamonds">💎 Diamond</option>
+                    <option value="events">⚡ Sự kiện</option>
+                    <option value="gifts">🎁 Gift</option>
+                    <option value="chats">💬 Bình luận</option>
+                    <option value="members">👁 Người vào</option>
+                    <option value="likes">♥ Like</option>
+                </select>
+                <select id="report-range" class="report-select">
+                    <option value="7">7 ngày</option>
+                    <option value="30" selected>30 ngày</option>
+                    <option value="90">90 ngày</option>
+                </select>
+                <button id="report-refresh" class="btn btn-secondary btn-sm">↻ Tải lại</button>
+            </div>
+        </div>
+        <div id="report-chart" class="report-chart"></div>
+        <p class="help" id="report-summary">Đang tải lịch sử…</p>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <p class="card-label">Từng phiên</p>
+                <h2 class="card-title">🗂 Các phiên đã lưu</h2>
+            </div>
+        </div>
+        <div class="table-scroll">
+            <table class="report-table">
+                <thead>
+                    <tr>
+                        <th>Bắt đầu</th><th>Kênh</th><th>Nguồn</th><th>Thời lượng</th>
+                        <th>Sự kiện</th><th>Gift</th><th>💎</th><th>Top tặng quà</th>
+                    </tr>
+                </thead>
+                <tbody id="report-rows"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <p class="card-label">Chẩn đoán</p>
+                <h2 class="card-title">🩺 Nhật ký lỗi</h2>
+            </div>
+            <div class="card-actions">
+                <label class="inline-check">
+                    <input type="checkbox" id="log-errors-only"> Chỉ lỗi &amp; cảnh báo
+                </label>
+                <button id="log-refresh" class="btn btn-secondary btn-sm">↻ Tải lại</button>
+            </div>
+        </div>
+        <div id="log-view" class="log-view"></div>
+        <p class="help">Log đầy đủ lưu tại <code>TikTokBridge/logs/</code>, mỗi ngày một file.</p>
+    </div>
 </section>
 
 <!-- ── HƯỚNG DẪN ── -->
@@ -285,8 +370,8 @@
     <div class="grid-2" style="margin-bottom:14px;">
         <div class="card step-card">
             <p class="card-label">Bước 1</p>
-            <h2 class="card-title" style="margin-bottom:8px;">🖥️ Khởi động ÔNG CHÚ MMO Live</h2>
-            <p class="help">Mở file <strong>OngChuMMO_Live.exe</strong>. Chờ hiện <strong>NODE ONLINE</strong> ở góc màn hình game.</p>
+            <h2 class="card-title" style="margin-bottom:8px;">🖥️ Khởi động Toandn Live</h2>
+            <p class="help">Mở file <strong>Toandn_Live.exe</strong>. Chờ hiện <strong>NODE ONLINE</strong> ở góc màn hình game.</p>
         </div>
         <div class="card">
             <p class="card-label">Bước 2</p>
@@ -296,7 +381,7 @@
         <div class="card">
             <p class="card-label">Bước 3</p>
             <h2 class="card-title" style="margin-bottom:8px;">📺 Thêm vào OBS</h2>
-            <p class="help">Thêm source <strong>Game Capture</strong> → chọn cửa sổ ÔNG CHÚ MMO Live. Bấm <strong>F2</strong> trong game để bật Chroma Key.</p>
+            <p class="help">Thêm source <strong>Game Capture</strong> → chọn cửa sổ Toandn Live. Bấm <strong>F2</strong> trong game để bật Chroma Key.</p>
         </div>
         <div class="card">
             <p class="card-label">Bước 4</p>
@@ -328,7 +413,7 @@
 
 <!-- ── FOOTER ── -->
 <footer class="page-footer" style="max-width:1100px;margin:0 auto;padding-left:24px;padding-right:24px;">
-    © 2025 <strong>ÔNG CHÚ MMO</strong> &nbsp;|&nbsp; <a href="https://ongchummo.com" target="_blank">ongchummo.com</a>
+    © 2025 <strong>Toandn</strong> &nbsp;|&nbsp; <a href="https://Toandn" target="_blank">Toandn</a>
     &nbsp;&bull;&nbsp; Zalo: <a href="https://zalo.me/0977896644" target="_blank">0977.896.644</a>
     &nbsp;&bull;&nbsp; Email: <a href="mailto:toanhvan90@gmail.com">toanhvan90@gmail.com</a>
 </footer>

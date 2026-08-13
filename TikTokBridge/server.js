@@ -1,8 +1,8 @@
 /* ═══════════════════════════════════════════════════════════
-   ÔNG CHÚ MMO — TikTok Live Bridge Server
-   © 2025 ÔNG CHÚ MMO — ongchummo.com
-   Zalo: 0977.896.644 | Website: https://ongchummo.com
-   Phần mềm thuộc sở hữu của ÔNG CHÚ MMO. Nghiêm cấm sao chép
+   Toandn — TikTok Live Bridge Server
+   © 2025 Toandn — Toandn
+   Zalo: 0977.896.644 | Website: https://Toandn
+   Phần mềm thuộc sở hữu của Toandn. Nghiêm cấm sao chép
    hoặc phân phối lại khi chưa được cấp phép bằng văn bản.
 ═══════════════════════════════════════════════════════════ */
 
@@ -27,7 +27,10 @@ const giftConfig = require('./config/gifts.json');
 const initialMasterConfig = require('./config/master.json');
 const initialObservedGifts = require('./config/observed-gifts.json');
 const { normalizeText, sanitizeMasterConfig, resolveMasterRule, applyRule, applyBuiltInChatCommand } = require('./src/master/rules');
+const logger = require('./src/logger');
+const sessions = require('./src/sessions');
 const {
+    cleanText,
     sanitizeGameEvent,
     isLoopbackAddress,
     isAllowedHost,
@@ -52,8 +55,20 @@ const assetsDir = path.join(__dirname, 'assets');
 const gifsDir = path.join(assetsDir, 'gifs');
 const masterConfigPath = path.join(__dirname, 'config', 'master.json');
 const observedGiftsPath = path.join(__dirname, 'config', 'observed-gifts.json');
+const logsDir = path.join(__dirname, 'logs');
+const sessionsPath = path.join(__dirname, 'data', 'sessions.json');
+
+logger.configure(logsDir);
+const loadedSessionCount = sessions.load(sessionsPath);
 const LIVE_PROVIDER = String(process.env.LIVE_PROVIDER || gameConfig.liveProvider || 'tikfinity').toLowerCase();
 const TIKFINITY_WS_URL = String(process.env.TIKFINITY_WS_URL || gameConfig.tikfinityWsUrl || 'ws://127.0.0.1:21213/');
+
+// Provider dang dung. Khoi tao tu LIVE_PROVIDER de giu nguyen hanh vi cu khi
+// control panel khong gui gi, nhung cho phep doi tung lan ket noi.
+let activeProvider = LIVE_PROVIDER;
+// Giu trong bo nho thoi. Muon khoi phai nhap lai moi lan khoi dong thi dat
+// EULER_API_KEY trong file .env.
+let eulerApiKey = String(process.env.EULER_API_KEY || '').trim();
 
 let liveConnection = null;
 let connectionAttempt = 0;
@@ -141,6 +156,28 @@ app.get('/api/gifs', async (_req, res) => {
         console.error('Không thể đọc thư mục GIF:', error);
         res.status(500).json({ error: 'Không thể đọc danh sách GIF' });
     }
+});
+
+app.get('/api/sessions', (req, res) => {
+    const days = Math.max(1, Math.min(365, Number(req.query.days) || 30));
+    const list = sessions.all();
+    res.json({
+        daily: sessions.daily(days),
+        // Mới nhất lên đầu cho bảng lịch sử.
+        sessions: list.slice(-100).reverse(),
+        total: list.length
+    });
+});
+
+app.get('/api/logs', (req, res) => {
+    const limit = Math.max(1, Math.min(300, Number(req.query.limit) || 120));
+    const level = String(req.query.level || '').toLowerCase();
+    const entries = logger.recent(limit);
+    res.json({
+        entries: level === 'error' || level === 'warn'
+            ? entries.filter(entry => entry.level === 'error' || entry.level === 'warn')
+            : entries
+    });
 });
 
 app.use((_req, res) => res.status(404).type('text/plain').send('Not found'));
@@ -269,7 +306,55 @@ function isRealObservedGift(event) {
     return event.userId !== 'master-test' && !giftId.startsWith('demo-') && !giftId.startsWith('master-');
 }
 
+/**
+ * Chốt phiên đang chạy vào lịch sử trước khi số liệu bị xoá.
+ * Luôn xoá startedAt sau khi chạy nên gọi nhiều lần cũng không ghi trùng.
+ */
+function finalizeSession(reason = '') {
+    if (!metrics.startedAt || metrics.source === 'idle' || metrics.source === 'demo') {
+        metrics.startedAt = null;
+        return null;
+    }
+    const topGifters = [...sessionPlayers.values()]
+        .filter(player => (Number(player.giftPower) || 0) > 0)
+        .sort((a, b) => (Number(b.giftPower) || 0) - (Number(a.giftPower) || 0))
+        .slice(0, 5)
+        .map(player => ({
+            nickname: player.nickname,
+            uniqueId: player.uniqueId,
+            diamonds: Math.round(Number(player.giftPower) || 0)
+        }));
+
+    const saved = sessions.record({
+        id: `${metrics.startedAt}-${activeProvider}`,
+        provider: activeProvider,
+        username: connectionStatus.username || '',
+        startedAt: metrics.startedAt,
+        endedAt: Date.now(),
+        events: metrics.events,
+        members: metrics.members,
+        chats: metrics.chats,
+        gifts: metrics.gifts,
+        diamonds: metrics.diamonds,
+        likes: metrics.likes,
+        topGifters
+    });
+    metrics.startedAt = null;
+
+    if (saved) {
+        logger.info(
+            'session',
+            `Đã lưu phiên @${saved.username || '?'} qua ${saved.provider}`,
+            `${Math.round(saved.durationMs / 1000)}s · ${saved.events} sự kiện · ${saved.diamonds}💎` +
+                (reason ? ` · ${reason}` : '')
+        );
+        broadcast({ type: 'session_saved', session: saved });
+    }
+    return saved;
+}
+
 function resetSessionState(source = metrics.source) {
+    finalizeSession('bắt đầu phiên mới');
     metrics = { ...createMetrics(), source, startedAt: source === 'idle' ? null : Date.now() };
     sessionPlayers.clear();
     sessionVipScores.clear();
@@ -303,6 +388,15 @@ function normalizeUsername(value) {
     if (typeof value !== 'string') return null;
     const username = value.trim().replace(/^@/, '');
     return /^[A-Za-z0-9._]{2,24}$/.test(username) ? username : null;
+}
+
+// Chi nhan cac provider control panel duoc phep chon. Tra ve null khi client
+// khong gui gi, luc do provider dang dung se duoc giu nguyen.
+const SELECTABLE_PROVIDERS = new Set(['tikfinity', 'eulerstream']);
+
+function normalizeProvider(value) {
+    const provider = String(value ?? '').trim().toLowerCase();
+    return SELECTABLE_PROVIDERS.has(provider) ? provider : null;
 }
 
 function nonEmpty(value, fallback = '') {
@@ -567,7 +661,7 @@ function scheduleReconnect(username) {
     setStatus(
         'reconnecting',
         username,
-        LIVE_PROVIDER === 'tikfinity'
+        activeProvider === 'tikfinity'
             ? `Chưa thấy TikFinity Desktop. Tự thử lại sau ${Math.ceil(delayMs / 1000)} giây...`
             : `Mất kết nối TikTok. Tự kết nối lại sau ${Math.ceil(delayMs / 1000)} giây...`
     );
@@ -616,6 +710,7 @@ async function connectToTikFinity(username, options = {}) {
     });
     connection.on('error', error => {
         console.warn(`TikFinity WebSocket: ${error.message}`);
+        logger.warn('tikfinity', 'Lỗi WebSocket TikFinity', error.message);
     });
     connection.on('close', () => {
         if (!active()) return;
@@ -625,7 +720,7 @@ async function connectToTikFinity(username, options = {}) {
 }
 
 function connectToLiveProvider(username, options = {}) {
-    return LIVE_PROVIDER === 'tikfinity'
+    return activeProvider === 'tikfinity'
         ? connectToTikFinity(username, options)
         : connectToTikTok(username, options);
 }
@@ -635,7 +730,10 @@ function attachTikTokEvents(connection) {
     // EventEmitter treats an unhandled `error` event as fatal. Keep the bridge
     // alive and let connect/reconnect report the connection state instead.
     connection.on('error', error => {
-        console.warn('TikTok connection error:', error?.message || error);
+        const raw = error?.message || String(error);
+        console.warn('TikTok connection error:', raw);
+        const hint = logger.explainEulerError(raw);
+        logger.warn(activeProvider, 'Lỗi kết nối TikTok', hint ? `${hint} (${raw})` : raw);
     });
     connection.on('member', data => active() && processGameEvent(normalizeMember(data)));
     connection.on('chat', data => active() && processGameEvent(normalizeChat(data)));
@@ -671,7 +769,7 @@ async function connectToTikTok(username, options = {}) {
     let connection;
     try {
         connection = new TikTokLiveConnection(username, {
-            signApiKey: process.env.EULER_API_KEY || undefined,
+            signApiKey: eulerApiKey || undefined,
             processInitialData: false,
             enableExtendedGiftInfo: false
         });
@@ -689,6 +787,7 @@ async function connectToTikTok(username, options = {}) {
         liveConnection = null;
         desiredUsername = null;
         cancelReconnect();
+        finalizeSession('live kết thúc');
         setStatus('ended', username, `Live @${username} đã kết thúc`);
     });
     connection.on('disconnected', () => {
@@ -707,10 +806,17 @@ async function connectToTikTok(username, options = {}) {
         setStatus('connected', username, `Đã kết nối @${username}`);
         broadcastMetrics();
         console.log(`Đã kết nối @${username}, room ${state.roomId}`);
+        logger.info(activeProvider, `Đã kết nối @${username}`, `room ${state.roomId}`);
     } catch (error) {
         if (attempt !== connectionAttempt) return;
         liveConnection = null;
-        console.error(`Không thể kết nối @${username}:`, error.message);
+        const raw = error?.message || String(error);
+        // Lỗi key sai / hết quota là nhóm hay gặp nhất khi dùng EulerStream,
+        // nên dịch sang câu nói rõ phải làm gì thay vì để nguyên tiếng Anh.
+        const hint = logger.explainEulerError(raw);
+        console.error(`Không thể kết nối @${username}:`, raw);
+        logger.error(activeProvider, `Không thể kết nối @${username}`, hint ? `${hint} (${raw})` : raw);
+        if (hint) setStatus('error', username, hint);
         if (desiredUsername === username) scheduleReconnect(username);
     }
 }
@@ -727,7 +833,14 @@ async function handleClientMessage(ws, message) {
         }
         ws.role = message.role;
         ws.registered = true;
-        send(ws, { type: 'config', game: gameConfig, gifts: giftConfig });
+        // hasEulerKey chi bao da co key hay chua, khong bao gio gui key ra ngoai.
+        send(ws, {
+            type: 'config',
+            game: gameConfig,
+            gifts: giftConfig,
+            provider: activeProvider,
+            hasEulerKey: Boolean(eulerApiKey)
+        });
         send(ws, { type: 'status', ...connectionStatus });
         send(ws, { type: 'metrics', ...metrics });
         if (ws.role === 'control') send(ws, { type: 'master_config', master: masterConfig });
@@ -791,6 +904,21 @@ async function handleClientMessage(ws, message) {
                 message: 'Username chỉ được gồm chữ, số, dấu chấm hoặc gạch dưới.'
             });
         }
+
+        // Client cu khong gui provider -> giu nguyen provider dang dung.
+        const provider = normalizeProvider(message.provider);
+        if (provider === 'eulerstream') {
+            const key = cleanText(message.apiKey, 512).trim();
+            if (key) eulerApiKey = key;
+            if (!eulerApiKey) {
+                return send(ws, {
+                    type: 'error',
+                    message: 'Cần API key EulerStream. Lấy key tại eulerstream.com rồi dán vào ô API key.'
+                });
+            }
+        }
+        if (provider) activeProvider = provider;
+
         return connectToLiveProvider(username);
     }
 
@@ -800,6 +928,7 @@ async function handleClientMessage(ws, message) {
         cancelReconnect();
         connectionAttempt += 1;
         await disconnectCurrentConnection();
+        finalizeSession('người dùng ngắt kết nối');
         setStatus('idle', null, 'Đã ngắt kết nối');
         return;
     }
@@ -908,6 +1037,8 @@ server.maxHeadersCount = 64;
 server.listen(PORT, HOST, () => {
     console.log(`TikTok Live Game: http://${HOST}:${PORT}`);
     console.log(`Bảng điều khiển: http://${HOST}:${PORT}/control.html`);
+    logger.info('bridge', `Bridge khởi động tại http://${HOST}:${PORT}`,
+        `provider=${activeProvider} · đã nạp ${loadedSessionCount} phiên cũ · log tại ${logsDir}`);
 });
 
 async function shutdown() {
@@ -917,6 +1048,11 @@ async function shutdown() {
     cancelReconnect();
     connectionAttempt += 1;
     await disconnectCurrentConnection();
+    // Chốt nốt phiên đang chạy để tắt server không mất số liệu. Phải chờ ghi
+    // xong rồi mới thoát, nếu không process.exit() sẽ cắt ngang lượt ghi.
+    finalizeSession('tắt server');
+    logger.info('bridge', 'Bridge đang tắt');
+    await Promise.allSettled([sessions.flush(), logger.flush()]);
     for (const ws of wss.clients) ws.terminate();
     wss.close();
     server.close(() => process.exit(0));

@@ -155,16 +155,7 @@ namespace TikTokLiveGame
 
         private static string[] FindTracks(out string selectedFolder)
         {
-            string buildRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
-            string projectRoot = Directory.GetParent(buildRoot)?.FullName ?? buildRoot;
-            string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ?? projectRoot;
-            string[] folders =
-            {
-                Path.Combine(buildRoot, "DJ_MUSIC"),
-                Path.Combine(workspaceRoot, "DJ_MUSIC"),
-                Path.Combine(workspaceRoot, "assets", "music"),
-                Application.streamingAssetsPath
-            };
+            string[] folders = RuntimeAssetPaths.FindDirectories("DJ_MUSIC").ToArray();
             string[] extensions = { ".mp3", ".wav", ".ogg" };
             foreach (string folder in folders)
             {

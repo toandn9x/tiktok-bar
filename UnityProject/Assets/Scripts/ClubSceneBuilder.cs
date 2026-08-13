@@ -33,14 +33,21 @@ namespace TikTokLiveGame
             // CreateArchitecturalBackdrop(); // Hide acoustic wall and panels
 
             Texture2D tex = new Texture2D(2, 2, TextureFormat.RGBA32, false);
-            string path = @"D:\TIKTOK_LIVE_BAR\LiveAssets\nenamphu.png";
-            if (System.IO.File.Exists(path))
+            string path = RuntimeAssetPaths.FindFile("LiveAssets", "nenamphu.png");
+            if (!string.IsNullOrEmpty(path))
             {
                 tex.LoadImage(System.IO.File.ReadAllBytes(path));
                 tex.filterMode = FilterMode.Trilinear;
                 tex.anisoLevel = 8;
                 tex.wrapMode = TextureWrapMode.Mirror;
                 tex.Apply();
+            }
+            else
+            {
+                Color fallback = new(0.01f, 0.005f, 0.025f, 1f);
+                tex.SetPixels(new[] { fallback, fallback, fallback, fallback });
+                tex.Apply();
+                Debug.LogWarning("Backdrop not found: LiveAssets/nenamphu.png");
             }
             Shader bgShader = Shader.Find("Unlit/Texture");
             if (bgShader == null) bgShader = Shader.Find("Sprites/Default");
@@ -106,6 +113,9 @@ namespace TikTokLiveGame
             floor.name = "Invisible Dance Floor";
             floor.transform.position = new Vector3(0f, -0.3f, -1f);
             floor.transform.localScale = new Vector3(100f, 0.5f, 100f);
+            // Giu an: bat ky mat san duc nao cung che mat phan san ve trong anh
+            // nen. Anh den duoi san duoc lam bang cac quad blend cong trong
+            // CreateFloorLightPools() thay vi hat den that vao mat san.
             floor.GetComponent<Renderer>().enabled = false;
 
             CreateRaisedStage();
@@ -140,6 +150,90 @@ namespace TikTokLiveGame
             AddLight("Hell Red Light", new Vector3(-6f, 7f, 1f), new Color(1f, 0.1f, 0.1f), 4.8f, 20f);
             AddLight("Hell Orange Light", new Vector3(6f, 7f, 0f), new Color(1f, 0.4f, 0f), 4.6f, 20f);
             AddLight("Stage Demon Light", new Vector3(0f, 8f, -7f), new Color(0.8f, 0f, 0.2f), 5.8f, 23f);
+
+            CreateFloorLightPools();
+            CreateBackdropVideoScreen();
+        }
+
+        /// <summary>
+        /// Phat video lap vao dung o man hinh LED da ve san trong anh nen.
+        /// Vien man hinh da co trong anh nen nen o day chi can mot quad phang.
+        ///
+        /// Toa do do truc tiep tu nenamphu.png chu khong uoc luong: o man hinh
+        /// nam trong khoang u 0.2721..0.7375 va v 0.286..0.427 cua anh. Tam nen
+        /// co tam (0, -3, -12.5), rong 22.512, cao 40 nen quy doi duoc:
+        ///     x = -11.256 + u * 22.512   ->  -5.130 .. +5.347
+        ///     y = 17 - v * 40            ->  -0.080 .. +5.560
+        /// </summary>
+        private static void CreateBackdropVideoScreen()
+        {
+            GameObject screen = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            screen.name = "Backdrop Video Screen";
+            Object.Destroy(screen.GetComponent<Collider>());
+
+            // Nam giua tam nen (-12.5) va cac vung sang san (-12.35).
+            screen.transform.position = new Vector3(0.108f, 2.740f, -12.42f);
+            // Quad cua Unity huong ve -Z, phai xoay 180 do moi quay ve camera.
+            screen.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+            screen.transform.localScale = new Vector3(10.477f, 5.640f, 1f);
+
+            DjVideoScreen video = screen.AddComponent<DjVideoScreen>();
+            // Hai cong tac chinh huong hinh. Neu hien sai thi doi ngay o day:
+            //   MirrorHorizontally - bu phep xoay 180 do quanh truc Y o tren.
+            //   FlipVertically     - dat true neu hinh bi nguoc dau.
+            video.MirrorHorizontally = true;
+            video.FlipVertically = false;
+        }
+
+        /// <summary>
+        /// Anh den do xuong san. Khong dung den spot that vi den Unity chi hien
+        /// khi hat vao be mat, ma bat ky mat san duc nao cung che mat phan san
+        /// da ve san trong anh nen. Thay vao do dat cac quad blend cong ngay
+        /// truoc tam nen: chung cong them anh sang ma khong che gi.
+        /// </summary>
+        private static void CreateFloorLightPools()
+        {
+            Shader poolShader = Shader.Find("Custom/LightPool");
+            if (poolShader == null)
+            {
+                Debug.LogWarning("Khong tim thay shader Custom/LightPool, bo qua anh den san.");
+                return;
+            }
+
+            // Tam nen dung o z = -12.5, dinh o y = +17, cao 40.
+            // Vien san khau ve trong anh nam o 52.2% chieu cao anh => y = -3.86,
+            // nen dai san keo dai tu khoang y = -4 tro xuong.
+            const float poolZ = -12.35f;
+            (float X, float Y, float Width, float Height, Color Color)[] pools =
+            {
+                (-4.6f,  -4.9f,  5.4f, 1.5f, new Color(1f, 0.12f, 0.32f)),
+                ( 4.6f,  -4.9f,  5.4f, 1.5f, new Color(0.12f, 0.7f, 1f)),
+                (-2.4f,  -7.5f,  7.2f, 2.1f, new Color(0.75f, 0.15f, 1f)),
+                ( 2.8f,  -7.9f,  7.6f, 2.2f, new Color(1f, 0.45f, 0.08f)),
+                ( 0f,   -11.2f, 10.5f, 3.1f, new Color(0.15f, 0.55f, 1f)),
+                (-5.4f, -13.6f,  9f,   3.4f, new Color(1f, 0.1f, 0.45f)),
+                ( 5.6f, -13.9f,  9f,   3.4f, new Color(0.3f, 0.95f, 0.85f))
+            };
+
+            GameObject root = new("Floor Light Pools");
+            for (int index = 0; index < pools.Length; index++)
+            {
+                (float x, float y, float width, float height, Color color) = pools[index];
+                GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                quad.name = $"Floor Light Pool {index}";
+                Object.Destroy(quad.GetComponent<Collider>());
+                quad.transform.SetParent(root.transform);
+                quad.transform.position = new Vector3(x, y, poolZ);
+                quad.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
+                quad.transform.localScale = new Vector3(width, height, 1f);
+                quad.GetComponent<Renderer>().sharedMaterial = new Material(poolShader);
+
+                FloorLightPool pool = quad.AddComponent<FloorLightPool>();
+                pool.index = index;
+                pool.baseColor = color;
+                pool.baseIntensity = index < 2 ? 0.5f : 0.62f;
+                pool.sway = 1.1f + index * 0.22f;
+            }
         }
 
         private static void CreateRaisedStage()
@@ -223,38 +317,50 @@ namespace TikTokLiveGame
 
         private static void CreateDjPerformer()
         {
-            // Thay thế DJ 3D bằng Nhân vật chính từ GIF (đã trích xuất thành mảng PNG)
-            GameObject performer = GameObject.CreatePrimitive(PrimitiveType.Quad);
-            performer.name = "Main Character GIF";
-            
-            // Xóa Collider
-            Object.Destroy(performer.GetComponent<Collider>());
-            
-            // Đặt vị trí ngay giữa sân khấu DJ
-            performer.transform.position = new Vector3(0f, 3.4f, -7.5f); // Đặt lên sàn DJ
-            performer.transform.rotation = Quaternion.Euler(0f, 0f, 0f);
-            performer.transform.localScale = new Vector3(4.5f, 4.5f, 1f); // Kích thước của nhân vật GIF
-            
-            // Thêm Script GifPlayer để tự động phát
-            GifPlayer gifPlayer = performer.AddComponent<GifPlayer>();
-            
-            string frameDir = System.IO.Path.Combine(Application.dataPath, "../../LiveAssets/DJ_GIF");
-            if (!System.IO.Directory.Exists(frameDir))
-                frameDir = System.IO.Path.Combine(System.IO.Directory.GetCurrentDirectory(), "LiveAssets/DJ_GIF");
-            
-            gifPlayer.FrameDirectory = frameDir;
-            gifPlayer.FrameRate = 30f; // Tốc độ khung hình mượt mà
+            string frameDirectory = RuntimeAssetPaths.FindDirectory("LiveAssets", "DJ_GIF");
+            if (string.IsNullOrEmpty(frameDirectory))
+            {
+                Debug.LogWarning("DJ frames not found: LiveAssets/DJ_GIF");
+                return;
+            }
 
-            // Ánh sáng chiếu vào nhân vật
-            AddDjKeyLight("DJ Warm Key", new Vector3(-2.2f, 4.25f, -5.8f), new Color(1f, 0.55f, 0.38f), 3.2f);
-            AddDjKeyLight("DJ Cool Rim", new Vector3(2.4f, 4.55f, -8.7f), new Color(0.22f, 0.55f, 1f), 2.7f);
+            GameObject performer = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            performer.name = "DJ GIF Performer";
+            Object.Destroy(performer.GetComponent<Collider>());
+
+            // ClubRoot later moves back by 12 units. The compensated Z keeps
+            // this transparent quad immediately in front of the backdrop.
+            //
+            // Chieu cao duoc tinh nguoc tu anh nen, khong phai uoc luong:
+            //   - Quad nen cao 40, tam o y = -3, nen dinh nen o y = 17.
+            //   - Mat ban DJ (day man hinh LED) nam o 42.8% chieu cao anh nen
+            //     => y = 17 - 40 * 0.428 = -0.11.
+            //   - Chan nhan vat nam o 95.3% chieu cao khung GIF (do tu 475
+            //     frame trong LiveAssets/DJ_GIF), tuc thap hon tam quad mot
+            //     doan (0.953 - 0.5) * chieu cao quad.
+            // Muon nhich DJ len/xuong thi sua DjPerformerFeetY.
+            const float performerHeight = 3.04f;
+            const float feetInFrame = 0.953f;
+            const float DjPerformerFeetY = -0.11f;
+            performer.transform.position = new Vector3(
+                0f,
+                DjPerformerFeetY + (feetInFrame - 0.5f) * performerHeight,
+                0.12f);
+            performer.transform.rotation = Quaternion.identity;
+            performer.transform.localScale = new Vector3(performerHeight * 1.776f, performerHeight, 1f);
+
+            GifPlayer gifPlayer = performer.AddComponent<GifPlayer>();
+            gifPlayer.FrameDirectory = frameDirectory;
+            gifPlayer.FrameRate = 30f;
+            gifPlayer.BufferAhead = 60;
+            gifPlayer.BufferBehind = 5;
         }
 
         private static void AddDjKeyLight(string name, Vector3 position, Color color, float intensity)
         {
             GameObject lightObject = new(name);
             lightObject.transform.position = position;
-            lightObject.transform.LookAt(new Vector3(0f, 2.45f, -8.05f));
+            lightObject.transform.LookAt(new Vector3(0f, 3.4f, 0.15f));
             Light light = lightObject.AddComponent<Light>();
             light.type = LightType.Spot;
             light.color = color;
@@ -281,7 +387,6 @@ namespace TikTokLiveGame
                 l.cullingMask = -1; 
                 DiscoLight disco = obj.AddComponent<DiscoLight>();
                 disco.index = i;
-                discoLights.Add(disco);
             }
         }
 
@@ -436,17 +541,20 @@ namespace TikTokLiveGame
 
         private static void CreateCircularTrussRig()
         {
-            Vector3 center = new(0f, 6.35f, -2.25f);
+            // ClubRoot is moved back by 12 units after construction. Keep this
+            // local Z positive so the complete rig remains in front of the
+            // backdrop instead of being cut in half by it.
+            Vector3 center = new(0f, 8.15f, 3.45f);
             const float outerRadius = 3.7f;
             const float innerRadius = 3.34f;
             const int segments = 32;
             const float halfHeight = 0.2f;
             Quaternion rigTilt = Quaternion.Euler(10f, 0f, 0f);
             Material trussMaterial = GameMaterials.Lit(
-                new Color(0.16f, 0.17f, 0.19f),
+                new Color(0.22f, 0.24f, 0.28f),
                 0.82f,
                 0.58f,
-                new Color(0.012f, 0.02f, 0.03f)
+                new Color(0.025f, 0.045f, 0.065f)
             );
 
             Vector3 RingPoint(float radius, float angle, float height)
@@ -477,7 +585,7 @@ namespace TikTokLiveGame
             {
                 float angle = index * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
                 Vector3 clampPosition = RingPoint(outerRadius, angle, halfHeight);
-                CreateTubeBetween($"Truss Suspension Cable {index}", clampPosition, new Vector3(clampPosition.x, 9.25f, clampPosition.z), cableMaterial, 0.018f);
+                CreateTubeBetween($"Truss Suspension Cable {index}", clampPosition, new Vector3(clampPosition.x, 10.5f, clampPosition.z), cableMaterial, 0.025f);
                 GameObject clamp = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
                 clamp.name = $"Truss Clamp {index}";
                 clamp.transform.position = clampPosition;
@@ -494,9 +602,10 @@ namespace TikTokLiveGame
                 new(1f, 0.5f, 0.06f),
                 new(0.08f, 1f, 0.52f)
             };
-            for (int index = 0; index < 12; index++)
+            const int fixtureCount = 12;
+            for (int index = 0; index < fixtureCount; index++)
             {
-                float angle = index * Mathf.PI * 2f / 12f;
+                float angle = index * Mathf.PI * 2f / fixtureCount;
                 Vector3 origin = RingPoint(3.52f, angle, -0.34f);
                 MovingHeadStyle style = (index % 4) switch
                 {
@@ -507,15 +616,6 @@ namespace TikTokLiveGame
                 };
                 bool castsFloorLight = index % 3 == 0;
                 CreateMovingHead($"Moving Head Ring {index}", origin, beamColors[index % beamColors.Length], index * 0.82f, style, castsFloorLight);
-            }
-
-            for (int index = 0; index < 8; index++)
-            {
-                float angle = index * Mathf.PI * 2f / 8f + Mathf.PI / 8f;
-                Vector3 origin = RingPoint(3.2f, angle, -0.47f);
-                MovingHeadStyle style = index % 2 == 0 ? MovingHeadStyle.GoboDots : MovingHeadStyle.Beam;
-                Color color = beamColors[(index + 1) % beamColors.Length];
-                CreateMovingHead($"Moving Head Floor FX {index}", origin, color, index * 1.16f + 0.4f, style, false);
             }
         }
 
@@ -551,7 +651,6 @@ namespace TikTokLiveGame
             CreateFixturePart("Lens", fixture.transform, PrimitiveType.Sphere, new Vector3(0f, 0.08f, 0.29f), wash ? new Vector3(0.16f, 0.16f, 0.055f) : new Vector3(0.125f, 0.125f, 0.045f), lens);
             MovingHeadFixture head = fixture.AddComponent<MovingHeadFixture>();
             head.Initialize(origin, color, phase, style, castsLight);
-            if (castsLight) head.light.cullingMask = -1;
         }
 
         private static void CreateFixturePart(string name, Transform parent, PrimitiveType type, Vector3 localPosition, Vector3 localScale, Material material, Vector3 localEuler = default)

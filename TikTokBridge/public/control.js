@@ -1,7 +1,7 @@
 /* ─────────────────────────────────────────────────────────
-   ÔNG CHÚ MMO — Control Panel JS
-   © 2025 ÔNG CHÚ MMO — ongchummo.com
-   Zalo: 0977.896.644 | Website: https://ongchummo.com
+   Toandn — Control Panel JS
+   © 2025 Toandn — Toandn
+   Zalo: 0977.896.644 | Website: https://Toandn
 ───────────────────────────────────────────────────────── */
 
 /* ═══ TAB NAVIGATION ════════════════════════════════════ */
@@ -27,6 +27,12 @@ const ui = {
     username:       document.getElementById('username'),
     connect:        document.getElementById('connect'),
     disconnect:     document.getElementById('disconnect'),
+    // Live tab — EulerStream
+    eulerUsername:  document.getElementById('euler-username'),
+    eulerApiKey:    document.getElementById('euler-api-key'),
+    eulerConnect:   document.getElementById('euler-connect'),
+    eulerDisconnect:document.getElementById('euler-disconnect'),
+    eulerHelp:      document.getElementById('euler-help'),
     // Test lab
     stopDemo:       document.getElementById('stop-demo'),
     // Session
@@ -84,6 +90,7 @@ function setStatus(data) {
     if (ui.statusTitleCard) ui.statusTitleCard.textContent = label;
     if (ui.statusMessage)   ui.statusMessage.textContent = data.message || '';
     ui.connect.disabled = state === 'connecting';
+    if (ui.eulerConnect) ui.eulerConnect.disabled = state === 'connecting';
 
     // Badge đỏ nhấp nháy khi đang LIVE thật
     const liveBadge = document.getElementById('live-badge');
@@ -212,6 +219,208 @@ function renderGiftCatalog() {
     );
 }
 
+/* ═══ BÁO CÁO PHIÊN LIVE ═════════════════════════════════ */
+const METRIC_LABELS = {
+    diamonds: 'Diamond', events: 'Sự kiện', gifts: 'Gift',
+    chats: 'Bình luận', members: 'Người vào', likes: 'Like',
+};
+
+function formatNumber(value) {
+    return Number(value || 0).toLocaleString('vi-VN');
+}
+
+function formatDuration(ms) {
+    const total = Math.max(0, Math.round(Number(ms) || 0) / 1000);
+    const hours = Math.floor(total / 3600);
+    const minutes = Math.floor((total % 3600) / 60);
+    if (hours) return `${hours}h${String(minutes).padStart(2, '0')}`;
+    return `${minutes}m${String(Math.floor(total % 60)).padStart(2, '0')}s`;
+}
+
+function svgEl(name, attrs = {}) {
+    const el = document.createElementNS('http://www.w3.org/2000/svg', name);
+    for (const [key, value] of Object.entries(attrs)) el.setAttribute(key, value);
+    return el;
+}
+
+// Vẽ biểu đồ cột bằng SVG dựng tay: CSP chặn thư viện ngoài, và một biểu đồ
+// cột đơn giản không đáng để kéo thêm phụ thuộc.
+function renderReportChart(daily, metric) {
+    const host = document.getElementById('report-chart');
+    if (!host) return;
+    host.replaceChildren();
+
+    const W = 900;
+    const H = 190;
+    const padLeft = 46;
+    const padBottom = 22;
+    const padTop = 10;
+    const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none' });
+
+    if (!daily.length) {
+        svg.append(Object.assign(svgEl('text', {
+            x: W / 2, y: H / 2, 'text-anchor': 'middle', class: 'empty',
+        }), { textContent: 'Chưa có phiên nào được lưu.' }));
+        host.append(svg);
+        return;
+    }
+
+    const peak = Math.max(1, ...daily.map(d => Number(d[metric]) || 0));
+    const plotH = H - padBottom - padTop;
+    const plotW = W - padLeft - 8;
+
+    // Ba đường lưới ngang kèm nhãn giá trị
+    for (let step = 0; step <= 2; step += 1) {
+        const value = Math.round((peak / 2) * step);
+        const y = padTop + plotH - (plotH * step) / 2;
+        svg.append(svgEl('line', { x1: padLeft, y1: y, x2: W - 8, y2: y, class: 'grid' }));
+        svg.append(Object.assign(svgEl('text', {
+            x: padLeft - 6, y: y + 3, 'text-anchor': 'end', class: 'axis',
+        }), { textContent: formatNumber(value) }));
+    }
+
+    const slot = plotW / daily.length;
+    const barW = Math.max(2, Math.min(34, slot * 0.68));
+    // Chỉ ghi nhãn ngày thưa ra để không chồng chữ khi khoảng thời gian dài.
+    const labelEvery = Math.ceil(daily.length / 12);
+
+    daily.forEach((day, index) => {
+        const value = Number(day[metric]) || 0;
+        const barH = Math.max(value > 0 ? 2 : 0, (value / peak) * plotH);
+        const x = padLeft + slot * index + (slot - barW) / 2;
+        const bar = svgEl('rect', {
+            x, y: padTop + plotH - barH, width: barW, height: barH, rx: 2, class: 'bar',
+        });
+        bar.append(Object.assign(svgEl('title'), {
+            textContent: `${day.day} · ${formatNumber(value)} ${METRIC_LABELS[metric]} · ${day.sessions} phiên`,
+        }));
+        svg.append(bar);
+
+        if (index % labelEvery === 0 || index === daily.length - 1) {
+            svg.append(Object.assign(svgEl('text', {
+                x: x + barW / 2, y: H - 7, 'text-anchor': 'middle', class: 'axis',
+            }), { textContent: day.day.slice(5) }));
+        }
+    });
+
+    host.append(svg);
+}
+
+function renderSessionRows(list) {
+    const body = document.getElementById('report-rows');
+    if (!body) return;
+
+    if (!list.length) {
+        const row = document.createElement('tr');
+        row.className = 'empty-row';
+        const cell = document.createElement('td');
+        cell.colSpan = 8;
+        cell.textContent = 'Chưa có phiên nào. Phiên sẽ tự lưu khi ngắt kết nối hoặc live kết thúc.';
+        row.append(cell);
+        body.replaceChildren(row);
+        return;
+    }
+
+    body.replaceChildren(...list.map(item => {
+        const row = document.createElement('tr');
+        const started = new Date(item.startedAt);
+        const top = (item.topGifters || [])
+            .map(g => `${g.nickname || g.uniqueId} (${formatNumber(g.diamonds)}💎)`)
+            .join(', ');
+
+        const cells = [
+            [started.toLocaleString('vi-VN'), ''],
+            [item.username ? '@' + item.username : '—', ''],
+            [item.provider, 'tag'],
+            [formatDuration(item.durationMs), 'num'],
+            [formatNumber(item.events), 'num'],
+            [formatNumber(item.gifts), 'num'],
+            [formatNumber(item.diamonds), 'num gold'],
+            [top || '—', ''],
+        ];
+        for (const [text, cls] of cells) {
+            const cell = document.createElement('td');
+            if (cls === 'tag') {
+                const tag = document.createElement('span');
+                tag.className = 'src-tag';
+                tag.textContent = text;
+                cell.append(tag);
+            } else {
+                cell.className = cls;
+                cell.textContent = text;
+            }
+            row.append(cell);
+        }
+        return row;
+    }));
+}
+
+async function loadReport() {
+    const metric = document.getElementById('report-metric')?.value || 'diamonds';
+    const days = Number(document.getElementById('report-range')?.value) || 30;
+    const summary = document.getElementById('report-summary');
+    try {
+        const response = await fetch(`/api/sessions?days=${days}`);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const data = await response.json();
+        renderReportChart(data.daily || [], metric);
+        renderSessionRows(data.sessions || []);
+
+        const totals = (data.daily || []).reduce((sum, day) => sum + (Number(day[metric]) || 0), 0);
+        summary.textContent = data.total
+            ? `${data.total} phiên đã lưu · tổng ${formatNumber(totals)} ${METRIC_LABELS[metric]} trong ${days} ngày gần nhất.`
+            : 'Chưa có phiên nào được lưu.';
+    } catch (error) {
+        if (summary) summary.textContent = 'Không tải được lịch sử: ' + error.message;
+    }
+}
+
+async function loadLogs() {
+    const host = document.getElementById('log-view');
+    if (!host) return;
+    const errorsOnly = document.getElementById('log-errors-only')?.checked;
+    try {
+        const response = await fetch(`/api/logs?limit=150${errorsOnly ? '&level=error' : ''}`);
+        if (!response.ok) throw new Error('HTTP ' + response.status);
+        const { entries = [] } = await response.json();
+
+        if (!entries.length) {
+            const empty = document.createElement('div');
+            empty.className = 'log-empty';
+            empty.textContent = errorsOnly ? 'Không có lỗi nào. 👍' : 'Chưa có log.';
+            host.replaceChildren(empty);
+            return;
+        }
+
+        host.replaceChildren(...entries.map(entry => {
+            const line = document.createElement('div');
+            line.className = 'log-line ' + entry.level;
+            const time = document.createElement('span');
+            time.className = 'log-time';
+            time.textContent = new Date(entry.at).toLocaleTimeString('vi-VN');
+            const scope = document.createElement('span');
+            scope.className = 'log-scope';
+            scope.textContent = '[' + entry.scope + ']';
+            const text = document.createElement('span');
+            text.className = 'log-text';
+            text.textContent = entry.message + (entry.detail ? ' — ' + entry.detail : '');
+            line.append(time, scope, text);
+            return line;
+        }));
+        host.scrollTop = host.scrollHeight;
+    } catch (error) {
+        host.textContent = 'Không tải được log: ' + error.message;
+    }
+}
+
+/* ═══ SERVER CONFIG ══════════════════════════════════════ */
+function applyServerConfig(data) {
+    // Server chi bao da co key hay chua, khong gui key that ra ngoai.
+    if (!ui.eulerHelp || !data.hasEulerKey) return;
+    ui.eulerHelp.textContent = 'Server đã có sẵn API key. Chỉ cần nhập username rồi bấm Kết nối.';
+    if (ui.eulerApiKey) ui.eulerApiKey.placeholder = 'Đã có key — để trống nếu không đổi';
+}
+
 /* ═══ SOCKET ═════════════════════════════════════════════ */
 function connectSocket() {
     clearTimeout(reconnectTimer);
@@ -225,6 +434,7 @@ function connectSocket() {
     socket.addEventListener('message', event => {
         let data;
         try { data = JSON.parse(event.data); } catch { return; }
+        if (data.type === 'config')         applyServerConfig(data);
         if (data.type === 'status' || data.type === 'error') setStatus(data);
         if (data.type === 'metrics')        setMetrics(data);
         if (data.type === 'master_config')  renderMaster(data.master);
@@ -237,6 +447,8 @@ function connectSocket() {
             renderGiftCatalog();
         }
         if (data.type === 'error') setMasterMessage(data.message || 'Có lỗi.', true);
+        // Vừa có phiên được chốt -> làm tươi báo cáo ngay.
+        if (data.type === 'session_saved') { loadReport(); loadLogs(); }
     });
 
     socket.addEventListener('close', () => {
@@ -250,10 +462,45 @@ function connectSocket() {
 /* ═══ EVENT LISTENERS ════════════════════════════════════ */
 ui.connect.addEventListener('click', () => {
     const username = ui.username.value.trim();
-    if (username) send({ type: 'set_username', username });
+    // Gui provider ro rang de con doi nguoc lai duoc sau khi da dung EulerStream.
+    if (username) send({ type: 'set_username', username, provider: 'tikfinity' });
 });
 ui.username.addEventListener('keydown', e => { if (e.key === 'Enter') ui.connect.click(); });
 ui.disconnect.addEventListener('click', () => send({ type: 'disconnect_tiktok' }));
+
+/* ═══ EULERSTREAM ════════════════════════════════════════ */
+function connectEulerStream() {
+    const username = ui.eulerUsername.value.trim();
+    if (!username) return;
+    send({
+        type: 'set_username',
+        username,
+        provider: 'eulerstream',
+        // Bo trong khi server da co san key tu .env hoac tu lan nhap truoc.
+        apiKey: ui.eulerApiKey.value.trim(),
+    });
+}
+
+if (ui.eulerConnect) {
+    ui.eulerConnect.addEventListener('click', connectEulerStream);
+    for (const input of [ui.eulerUsername, ui.eulerApiKey]) {
+        input?.addEventListener('keydown', e => { if (e.key === 'Enter') connectEulerStream(); });
+    }
+}
+ui.eulerDisconnect?.addEventListener('click', () => send({ type: 'disconnect_tiktok' }));
+
+/* ═══ BÁO CÁO ════════════════════════════════════════════ */
+document.getElementById('report-refresh')?.addEventListener('click', loadReport);
+document.getElementById('report-metric')?.addEventListener('change', loadReport);
+document.getElementById('report-range')?.addEventListener('change', loadReport);
+document.getElementById('log-refresh')?.addEventListener('click', loadLogs);
+document.getElementById('log-errors-only')?.addEventListener('change', loadLogs);
+
+// Mở tab Session thì tải lại số liệu cho tươi.
+document.querySelector('.tab-btn[data-tab="session"]')?.addEventListener('click', () => {
+    loadReport();
+    loadLogs();
+});
 ui.stopDemo.addEventListener('click',   () => send({ type: 'demo_stop' }));
 ui.reset.addEventListener('click',     () => send({ type: 'reset_game' }));
 ui.addMasterRule.addEventListener('click', () => ui.masterRules.append(createRuleRow(emptyRule())));
@@ -282,3 +529,5 @@ document.querySelectorAll('[data-action]').forEach(btn => {
 
 /* ═══ INIT ═══════════════════════════════════════════════ */
 connectSocket();
+loadReport();
+loadLogs();

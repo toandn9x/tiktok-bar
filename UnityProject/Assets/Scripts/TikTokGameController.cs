@@ -23,6 +23,7 @@ namespace TikTokLiveGame
         private int cinematicVersion;
         private bool restoreControlsAfterCinematic;
         private readonly List<Renderer> environmentRenderers = new();
+        private readonly List<bool> rendererDefaults = new();
         private readonly List<Light> environmentLights = new();
         private bool stylesReady;
         private GUIStyle panelStyle;
@@ -35,6 +36,7 @@ namespace TikTokLiveGame
         private GUIStyle bannerStyle;
         private Texture2D energyBack;
         private Texture2D energyFill;
+        private Texture2D buttonHover;
 
         private int controlTab = 0;
         private string manualUsername = "Khách VIP";
@@ -289,10 +291,18 @@ namespace TikTokLiveGame
             if (environmentRenderers.Count == 0)
             {
                 foreach (Renderer renderer in FindObjectsByType<Renderer>(FindObjectsSortMode.None))
-                    if (!renderer.transform.IsChildOf(playerManager.transform)) environmentRenderers.Add(renderer);
+                {
+                    if (renderer.transform.IsChildOf(playerManager.transform)) continue;
+                    environmentRenderers.Add(renderer);
+                    // Ghi nhớ trạng thái gốc để khi thoát chroma thì khôi phục đúng
+                    // như cũ, thay vì bật tất cả lên kể cả thứ vốn đã tắt có chủ đích.
+                    rendererDefaults.Add(renderer.enabled);
+                }
                 environmentLights.AddRange(FindObjectsByType<Light>(FindObjectsSortMode.None));
             }
-            foreach (Renderer renderer in environmentRenderers) if (renderer != null) renderer.enabled = !chromaMode;
+            for (int index = 0; index < environmentRenderers.Count; index++)
+                if (environmentRenderers[index] != null)
+                    environmentRenderers[index].enabled = !chromaMode && rendererDefaults[index];
             foreach (Light light in environmentLights) if (light != null) light.enabled = !chromaMode;
             RenderSettings.fog = !chromaMode;
             if (Camera.main != null) Camera.main.backgroundColor = chromaMode ? new Color(0f, 1f, 0f) : new Color(0.01f, 0.005f, 0.025f);
@@ -332,7 +342,7 @@ namespace TikTokLiveGame
             stylesReady = true;
             Texture2D panel = Solid(new Color(0.018f, 0.018f, 0.055f, 0.91f));
             Texture2D button = Solid(new Color(0.14f, 0.08f, 0.28f, 0.98f));
-            Texture2D buttonHover = Solid(new Color(0.08f, 0.45f, 0.62f, 1f));
+            buttonHover = Solid(new Color(0.08f, 0.45f, 0.62f, 1f));
             Texture2D input = Solid(new Color(0.01f, 0.01f, 0.025f, 0.98f));
             energyBack = Solid(new Color(0.05f, 0.05f, 0.12f, 0.95f));
             energyFill = Solid(new Color(0.1f, 0.9f, 1f, 1f));

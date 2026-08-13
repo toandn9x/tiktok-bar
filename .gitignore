@@ -1,14 +1,32 @@
 # ═══════════════════════════════════════════════
-#  .gitignore — ÔNG CHÚ MMO Live
+#  .gitignore — Toandn Live
 #  Node.js + Unity + Media
 # ═══════════════════════════════════════════════
+
+# ── BÍ MẬT — tuyệt đối không đưa lên git ─────
+# Repo này công khai. Mọi thứ dưới đây chứa hoặc có thể chứa
+# API key, mật khẩu, chứng chỉ, dữ liệu người xem.
+.env
+.env.*
+!.env.example
+*.env
+secrets.json
+credentials.json
+*credential*.json
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.jks
+*.crt
+apikey.txt
+api_key.txt
+token.txt
 
 # ── Node.js ──────────────────────────────────
 node_modules/
 npm-debug.log*
-.env
-.env.local
-.env.*.local
 
 # ── Unity (Library, cache, build) ────────────
 UnityProject/Library/
@@ -27,6 +45,13 @@ Build/
 
 # ── Build logs ───────────────────────────────
 build_log.txt
+
+# ── Log & lịch sử phiên của bridge (sinh ra lúc chạy) ──
+# Log có thể chứa username, và lịch sử phiên chứa tên người xem
+# cùng số tiền họ tặng — dữ liệu cá nhân, không nên công khai.
+TikTokBridge/logs/
+TikTokBridge/data/
+*.log
 
 # ── Media lớn (người dùng tự thêm) ──────────
 DJ_MUSIC/*.mp3

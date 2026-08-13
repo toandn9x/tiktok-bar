@@ -9,6 +9,21 @@ namespace TikTokLiveGame
     [RequireComponent(typeof(Renderer))]
     public sealed class DjVideoScreen : MonoBehaviour
     {
+        /// <summary>
+        /// Bat khi quad duoc xoay 180 do quanh truc Y de quay ve phia camera.
+        /// Phep xoay do lam hinh bi lat ngang, can lat lai bang UV neu khong
+        /// chu va logo trong video se bi nguoc.
+        /// </summary>
+        public bool MirrorHorizontally;
+
+        /// <summary>
+        /// Lat doc anh/video. Hai phep lat nay truoc day duoc viet cung vi man
+        /// hinh cu la mot Cube, ma mat Cube co UV khac Quad. Voi quad phang dat
+        /// truoc tam nen thi khong can lat, nen mac dinh la false.
+        /// Neu hinh hien nguoc dau thi doi cai nay thanh true.
+        /// </summary>
+        public bool FlipVertically;
+
         private VideoPlayer player;
         private RenderTexture videoSourceTexture;
         private RenderTexture videoTexture;
@@ -45,8 +60,8 @@ namespace TikTokLiveGame
                 Graphics.Blit(
                     videoSourceTexture,
                     videoTexture,
-                    new Vector2(1f, -1f),
-                    new Vector2(0f, 1f));
+                    new Vector2(1f, FlipVertically ? -1f : 1f),
+                    new Vector2(0f, FlipVertically ? 1f : 0f));
             }
             if (imagePaths.Length <= 1 || Time.unscaledTime < nextSlideAt) return;
             ShowImage((imageIndex + 1) % imagePaths.Length);
@@ -71,6 +86,7 @@ namespace TikTokLiveGame
 
             Shader shader = Shader.Find("Unlit/Texture") ?? Shader.Find("Sprites/Default");
             screenMaterial = new Material(shader) { mainTexture = videoTexture };
+            ApplyMirror();
             GetComponent<Renderer>().material = screenMaterial;
 
             player = gameObject.AddComponent<VideoPlayer>();
@@ -114,7 +130,7 @@ namespace TikTokLiveGame
                 Debug.LogWarning($"DJ image format is not supported: {imagePaths[index]}");
                 return;
             }
-            FlipPixelsVertically(nextTexture);
+            if (FlipVertically) FlipPixelsVertically(nextTexture);
 
             if (screenMaterial == null)
             {
@@ -152,6 +168,20 @@ namespace TikTokLiveGame
             }
             screenMaterial.mainTextureScale = scale;
             screenMaterial.mainTextureOffset = offset;
+            ApplyMirror();
+        }
+
+        /// <summary>
+        /// Lat nguoc truc U: mau lay tai (1 - u) thay vi u. Voi scale s va
+        /// offset o hien tai thi scale moi la -s va offset moi la o + s.
+        /// </summary>
+        private void ApplyMirror()
+        {
+            if (screenMaterial == null || !MirrorHorizontally) return;
+            Vector2 scale = screenMaterial.mainTextureScale;
+            Vector2 offset = screenMaterial.mainTextureOffset;
+            screenMaterial.mainTextureScale = new Vector2(-scale.x, scale.y);
+            screenMaterial.mainTextureOffset = new Vector2(offset.x + scale.x, offset.y);
         }
 
         private static void FlipPixelsVertically(Texture2D texture)
@@ -168,15 +198,7 @@ namespace TikTokLiveGame
 
         private static string FindVideoPath()
         {
-            string buildRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
-            string projectRoot = Directory.GetParent(buildRoot)?.FullName ?? buildRoot;
-            string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ?? projectRoot;
-            string[] folders =
-            {
-                Path.Combine(buildRoot, "DJ_VIDEO"),
-                Path.Combine(workspaceRoot, "DJ_VIDEO"),
-                Application.streamingAssetsPath
-            };
+            string[] folders = RuntimeAssetPaths.FindDirectories("DJ_VIDEO").ToArray();
             string[] extensions = { ".mp4", ".mov", ".m4v", ".webm" };
             foreach (string folder in folders)
             {
@@ -190,15 +212,7 @@ namespace TikTokLiveGame
 
         private static string[] FindImagePaths()
         {
-            string buildRoot = Directory.GetParent(Application.dataPath)?.FullName ?? Application.dataPath;
-            string projectRoot = Directory.GetParent(buildRoot)?.FullName ?? buildRoot;
-            string workspaceRoot = Directory.GetParent(projectRoot)?.FullName ?? projectRoot;
-            string[] folders =
-            {
-                Path.Combine(buildRoot, "DJ_VIDEO"),
-                Path.Combine(workspaceRoot, "DJ_VIDEO"),
-                Application.streamingAssetsPath
-            };
+            string[] folders = RuntimeAssetPaths.FindDirectories("DJ_VIDEO").ToArray();
             string[] extensions = { ".png", ".jpg", ".jpeg" };
             foreach (string folder in folders)
             {

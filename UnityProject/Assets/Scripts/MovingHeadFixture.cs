@@ -89,12 +89,11 @@ namespace TikTokLiveGame
             float baseIntensity = wash ? 0.62f : beamStyle ? 2.7f : gobo ? 2.15f : 1.9f;
             float pulseIntensity = wash ? 0.42f : beamStyle ? 1.35f : gobo ? 1.05f : 0.9f;
             spot.intensity = baseIntensity + beatPulse * pulseIntensity;
-            transform.position = origin;
             transform.LookAt(target);
             if (gobo) transform.Rotate(Vector3.forward, time * (style == MovingHeadStyle.GoboStar ? 21f : -15f) + phase * 18f, Space.Self);
             beam.startWidth = baseStartWidth * (0.82f + beatPulse * 0.45f);
             beam.endWidth = baseEndWidth * (0.82f + beatPulse * 0.45f);
-            beam.SetPosition(0, origin);
+            beam.SetPosition(0, transform.position);
             beam.SetPosition(1, target);
         }
 
