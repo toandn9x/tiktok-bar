@@ -117,12 +117,18 @@ namespace TikTokLiveGame
 
             rankLabel = CreateLabel("Rank", new Vector3(0f, 3.05f, 0f), 48, new Color(1f, 0.82f, 0.2f), characterRenderer.sortingOrder + 15);
             rankLabel.gameObject.SetActive(false);
-            titleLabel = CreateLabel("Title", new Vector3(0f, -0.25f, 0f), 36, new Color(0.3f, 0.95f, 1f), characterRenderer.sortingOrder + 14);
+            // Vị trí khởi tạo phải nằm sẵn TRÊN đầu. Trước đây đặt ở y = -0.25
+            // tức dưới chân, và chỉ được UpdateDecorationPositions() kéo lên
+            // đúng chỗ. Diễn viên nào chưa chạy được hàm đó — nó thoát sớm khi
+            // một trong 9 tham chiếu bị null — sẽ kẹt lại với dòng danh hiệu
+            // nằm dưới chân.
+            const float titleFallbackY = 2.9f;
+            titleLabel = CreateLabel("Title", new Vector3(0f, titleFallbackY, 0f), 36, new Color(0.3f, 0.95f, 1f), characterRenderer.sortingOrder + 14);
             titleLabel.characterSize = 0.04f;
             titleLabel.fontStyle = FontStyle.Bold;
             titleLabel.color = Color.white;
             titleLabel.gameObject.SetActive(false);
-            titleShadowLabel = CreateLabel("Title Shadow", new Vector3(0f, -0.25f, 0f), 36, new Color(0f, 0f, 0f, 0.92f), characterRenderer.sortingOrder + 13);
+            titleShadowLabel = CreateLabel("Title Shadow", new Vector3(0f, titleFallbackY, 0f), 36, new Color(0f, 0f, 0f, 0.92f), characterRenderer.sortingOrder + 13);
             titleShadowLabel.characterSize = 0.04f;
             titleShadowLabel.fontStyle = FontStyle.Bold;
             titleShadowLabel.gameObject.SetActive(false);

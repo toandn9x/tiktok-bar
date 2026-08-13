@@ -12,6 +12,13 @@ namespace TikTokLiveGame
         private void Awake()
         {
             spot = GetComponent<Light>();
+        }
+
+        // Phải đặt ở Start chứ không phải Awake. AddComponent<T>() gọi Awake()
+        // ngay lập tức, trước khi scene builder kịp gán `index`, nên đọc index
+        // trong Awake thì đèn nào cũng ra colors[0] — cả dàn cùng một màu đỏ.
+        private void Start()
+        {
             Color[] colors =
             {
                 new(1f, 0.08f, 0.2f),

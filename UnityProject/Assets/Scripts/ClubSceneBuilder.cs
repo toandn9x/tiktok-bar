@@ -152,6 +152,7 @@ namespace TikTokLiveGame
             AddLight("Stage Demon Light", new Vector3(0f, 8f, -7f), new Color(0.8f, 0f, 0.2f), 5.8f, 23f);
 
             CreateFloorLightPools();
+            CreateLaserShow();
             CreateBackdropVideoScreen();
         }
 
@@ -204,6 +205,8 @@ namespace TikTokLiveGame
             // Vien san khau ve trong anh nam o 52.2% chieu cao anh => y = -3.86,
             // nen dai san keo dai tu khoang y = -4 tro xuong.
             const float poolZ = -12.35f;
+            // Quad dung song song tam nen, det san thanh elip de doc ra la vet
+            // sang hat len tuong phia sau.
             (float X, float Y, float Width, float Height, Color Color)[] pools =
             {
                 (-4.6f,  -4.9f,  5.4f, 1.5f, new Color(1f, 0.12f, 0.32f)),
@@ -215,7 +218,40 @@ namespace TikTokLiveGame
                 ( 5.6f, -13.9f,  9f,   3.4f, new Color(0.3f, 0.95f, 0.85f))
             };
 
+            // Vong gobo nam NGANG tren mat san that, khong phai dan len tam nen.
+            // ClubCameraController la mot he camera dao dien di chuyen lien tuc
+            // (nhieu kieu goc may, FOV 34-54 do, bam theo nhan vat), nen bat ky
+            // hieu ung nao ghim vao toa do co dinh tren mat phang tam nen deu se
+            // troi khoi dai san khi camera doi goc. Dat nam ngang tren san thi
+            // moi goc may deu thay dung la vong sang chieu xuong.
+            (float X, float Z, float Diameter, Color Color)[] rings =
+            {
+                (-4.2f,  1.8f, 3.4f, new Color(1f, 0.82f, 0.15f)),
+                ( 4.4f,  0.4f, 4.2f, new Color(0.62f, 0.2f, 1f)),
+                (-2.6f, -2.4f, 3.8f, new Color(1f, 0.78f, 0.12f)),
+                ( 2.2f, -3.6f, 4.6f, new Color(0.55f, 0.18f, 1f)),
+                ( 0f,    3.6f, 5.2f, new Color(0.1f, 0.95f, 0.8f))
+            };
+
             GameObject root = new("Floor Light Pools");
+
+            // Quan trong: gan het cac truong TRUOC khi AddComponent. Unity goi
+            // Awake() ngay trong AddComponent, nen thu tu nguoc lai se lam Awake
+            // doc phai gia tri mac dinh.
+            FloorLightPool Attach(GameObject quad, int index, Color color, bool isRing, Material material)
+            {
+                quad.GetComponent<Renderer>().sharedMaterial = material;
+                FloorLightPool pool = quad.AddComponent<FloorLightPool>();
+                pool.index = index;
+                pool.baseColor = color;
+                pool.ring = isRing;
+                pool.baseIntensity = isRing ? 1.6f : (index < 2 ? 0.5f : 0.62f);
+                pool.sway = isRing ? 0f : 1.1f + index * 0.22f;
+                pool.spinSpeed = 0.1f + index % 4 * 0.05f;
+                return pool;
+            }
+
+            // Vung sang mo dan len tam nen, tao khong khi phia sau
             for (int index = 0; index < pools.Length; index++)
             {
                 (float x, float y, float width, float height, Color color) = pools[index];
@@ -226,13 +262,35 @@ namespace TikTokLiveGame
                 quad.transform.position = new Vector3(x, y, poolZ);
                 quad.transform.rotation = Quaternion.Euler(0f, 180f, 0f);
                 quad.transform.localScale = new Vector3(width, height, 1f);
-                quad.GetComponent<Renderer>().sharedMaterial = new Material(poolShader);
+                Attach(quad, index, color, false, new Material(poolShader));
+            }
 
-                FloorLightPool pool = quad.AddComponent<FloorLightPool>();
-                pool.index = index;
-                pool.baseColor = color;
-                pool.baseIntensity = index < 2 ? 0.5f : 0.62f;
-                pool.sway = 1.1f + index * 0.22f;
+            // Vong gobo nam ngang tren san, ngay tren mat san va chieu len tren
+            for (int index = 0; index < rings.Length; index++)
+            {
+                (float x, float z, float diameter, Color color) = rings[index];
+                GameObject quad = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                quad.name = $"Floor Gobo Ring {index}";
+                Object.Destroy(quad.GetComponent<Collider>());
+                quad.transform.SetParent(root.transform);
+                // Nhinh tren mat san mot chut de khong bi z-fighting
+                quad.transform.position = new Vector3(x, 0.03f, z);
+                quad.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
+                quad.transform.localScale = new Vector3(diameter, diameter, 1f);
+
+                Material material = new(poolShader);
+                material.SetFloat("_Mode", 1f);
+                material.SetFloat("_RingWidth", 0.2f);
+                material.SetFloat("_Dashes", 16f + index % 3 * 6f);
+
+                FloorLightPool pool = Attach(quad, pools.Length + index, color, true, material);
+                // Ban kinh va tan so quet rieng cho tung vong. Hai buoc nhay
+                // 0.043 va 0.037 khong chia het cho nhau nen cac vong khong bao
+                // gio ve lai cung mot hinh, nhin ra la quet ngau nhien.
+                pool.wanderX = 2.6f + index * 0.55f;
+                pool.wanderZ = 2.0f + index * 0.42f;
+                pool.wanderSpeedX = 0.17f + index * 0.043f;
+                pool.wanderSpeedZ = 0.11f + index * 0.037f;
             }
         }
 
@@ -495,47 +553,88 @@ namespace TikTokLiveGame
             CreateTubeBetween("Mirror Ball Cable", new Vector3(0f, 8.55f, -6.5f), new Vector3(0f, 9.4f, -6.5f), cable, 0.018f);
         }
 
+        /// <summary>
+        /// Màn laser quét chéo khắp khung hình.
+        ///
+        /// Toàn bộ toạ độ nằm trong vùng nhìn thấy được, tức phía TRƯỚC tấm nền
+        /// (nền ở z = -12.5). Hàm này phải được gọi SAU khi ClubRoot đã dời chỗ,
+        /// nếu không các tia sẽ bị gom vào ClubRoot rồi lùi ra sau tấm nền và
+        /// biến mất — đúng số phận của cả dàn đèn 3D trong club.
+        /// </summary>
         private static void CreateLaserShow()
         {
+            Shader laserShader = Shader.Find("Custom/LaserBeam");
+            if (laserShader == null)
+            {
+                Debug.LogWarning("Khong tim thay shader Custom/LaserBeam, bo qua man laser.");
+                return;
+            }
+
             Color[] colors =
             {
                 new(0.02f, 0.9f, 1f), new(1f, 0.03f, 0.55f), new(0.5f, 0.18f, 1f),
-                new(0.2f, 1f, 0.45f), new(1f, 0.18f, 0.08f)
+                new(0.2f, 1f, 0.45f), new(1f, 0.55f, 0.04f), new(0.95f, 0.95f, 0.1f)
             };
-            for (int index = 0; index < 8; index++)
+
+            GameObject root = new("Laser Show");
+
+            LineRenderer MakeBeam(string name, float width, float endWidth, Color color, float alpha)
             {
-                Vector3 origin = new(Mathf.Lerp(-5.5f, 5.5f, index / 7f), 6.8f + (index % 2) * 0.35f, -8.3f);
-                GameObject laser = new($"Laser Beam {index}");
+                GameObject laser = new(name);
+                laser.transform.SetParent(root.transform);
                 LineRenderer line = laser.AddComponent<LineRenderer>();
                 line.useWorldSpace = true;
                 line.positionCount = 2;
-                line.startWidth = 0.028f;
-                line.endWidth = 0.058f;
-                line.numCapVertices = 3;
-                line.sharedMaterial = GameMaterials.BackgroundSprite();
-                Color color = colors[index % colors.Length];
-                line.startColor = new Color(color.r, color.g, color.b, 0.44f);
-                line.endColor = new Color(color.r, color.g, color.b, 0.035f);
-                laser.AddComponent<ClubLaserBeam>().Initialize(line, origin, index * 0.73f);
+                line.startWidth = width;
+                line.endWidth = endWidth;
+                line.numCapVertices = 2;
+                line.alignment = LineAlignment.View;
+                line.sharedMaterial = new Material(laserShader);
+                line.startColor = new Color(color.r, color.g, color.b, alpha);
+                line.endColor = new Color(color.r, color.g, color.b, alpha * 0.12f);
+                return line;
             }
 
+            // Dàn chính: 10 tia treo trên trần quét ngang cả sàn.
+            for (int index = 0; index < 10; index++)
+            {
+                Vector3 origin = new(
+                    Mathf.Lerp(-8.5f, 8.5f, index / 9f),
+                    8.4f + (index % 2) * 0.9f,
+                    -11.6f);
+                Color color = colors[index % colors.Length];
+                LineRenderer line = MakeBeam($"Laser Beam {index}", 0.05f, 0.11f, color, 0.62f);
+
+                ClubLaserBeam beam = line.gameObject.AddComponent<ClubLaserBeam>();
+                beam.spreadX = 11.5f;
+                beam.targetYBase = -16.5f;
+                beam.targetYRange = 12.5f;
+                beam.targetZNear = -12.2f;
+                beam.targetZFar = -5.5f;
+                beam.sweepSpeed = 0.85f + index % 3 * 0.16f;
+                beam.Initialize(line, origin, index * 0.73f);
+            }
+
+            // Hai quạt tia bắn chéo từ hai bên, tạo mạng lưới đan nhau.
             for (int fan = 0; fan < 4; fan++)
             for (int ray = 0; ray < 4; ray++)
             {
                 float side = fan < 2 ? -1f : 1f;
-                Vector3 origin = new(side * (4.6f + (fan % 2) * 0.65f), 4.8f + (fan % 2) * 1.1f, -8.7f);
-                GameObject laser = new($"Laser Fan {fan}-{ray}");
-                LineRenderer line = laser.AddComponent<LineRenderer>();
-                line.useWorldSpace = true;
-                line.positionCount = 2;
-                line.startWidth = 0.016f;
-                line.endWidth = 0.035f;
-                line.numCapVertices = 2;
-                line.sharedMaterial = GameMaterials.BackgroundSprite();
-                Color color = colors[(fan + ray) % colors.Length];
-                line.startColor = new Color(color.r, color.g, color.b, 0.5f);
-                line.endColor = new Color(color.r, color.g, color.b, 0.025f);
-                laser.AddComponent<ClubLaserBeam>().Initialize(line, origin, fan * 1.9f + ray * 0.22f);
+                Vector3 origin = new(
+                    side * (9.4f + (fan % 2) * 1.1f),
+                    5.6f + (fan % 2) * 2.4f,
+                    -11.9f);
+                Color color = colors[(fan * 3 + ray) % colors.Length];
+                LineRenderer line = MakeBeam($"Laser Fan {fan}-{ray}", 0.032f, 0.07f, color, 0.5f);
+
+                ClubLaserBeam beam = line.gameObject.AddComponent<ClubLaserBeam>();
+                beam.spreadX = 12.5f;
+                beam.targetYBase = -18f;
+                beam.targetYRange = 15f;
+                beam.targetZNear = -12.3f;
+                beam.targetZFar = -6.5f;
+                beam.sweepSpeed = 0.7f + ray * 0.22f;
+                beam.Initialize(line, origin, fan * 1.9f + ray * 0.47f);
             }
         }
 
