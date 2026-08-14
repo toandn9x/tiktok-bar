@@ -462,7 +462,10 @@ function normalizeGiftName(value) {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .trim()
-        .toLocaleLowerCase('vi');
+        .toLocaleLowerCase('vi')
+        // Cung ly do nhu normalizeText trong src/master/rules.js: \u0111 khong bi
+        // NFD tach ra nen phai gap tay, neu khong ten qua co chu \u0111 se khong khop.
+        .replace(/\u0111/g, 'd');
 }
 
 function emitGameEvent(event) {

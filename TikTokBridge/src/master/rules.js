@@ -14,7 +14,12 @@ function normalizeText(value) {
         .normalize('NFD')
         .replace(/[\u0300-\u036f]/g, '')
         .trim()
-        .toLocaleLowerCase('vi');
+        .toLocaleLowerCase('vi')
+        // \u0111 (U+0111) la mot chu cai rieng chu khong phai d + dau, nen NFD khong
+        // tach ra duoc va no song sot qua buoc bo dau o tren. Khong gap ve d
+        // thi nguoi xem go "di vong" se KHONG khop trigger "\u0110i v\u00f2ng" \u2014 ma go
+        // khong dau moi la cach go chinh tren dien thoai.
+        .replace(/\u0111/g, 'd');
 }
 
 function splitTriggers(value) {
@@ -77,8 +82,17 @@ function applyRule(event, rule) {
     };
 }
 
+/**
+ * Lệnh chat dựng sẵn, chỉ là phương án dự phòng khi người dùng chưa cấu hình gì.
+ *
+ * Luật trong bảng Master phải THẮNG lệnh dựng sẵn. Trước đây hàm này ghi đè vô
+ * điều kiện, nên ai gõ "nhảy" cũng bị đổi thành `jump` (bật tại chỗ 0,95 giây)
+ * dù người dùng đã cấu hình hẳn luật `dance` cho đúng từ đó — nhìn như luật
+ * không chạy, mà thật ra chạy rồi rồi bị ghi đè ngay sau đó.
+ */
 function applyBuiltInChatCommand(event) {
     if (event.type !== 'chat') return event;
+    if (event.masterRuleId) return event;
     const command = normalizeText(event.comment);
     if (command !== 'jump' && command !== 'nhay') return event;
     return { ...event, action: 'jump', durationMs: 950, masterRuleId: '' };

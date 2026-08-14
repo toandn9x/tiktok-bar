@@ -1,10 +1,10 @@
 [
   {
     "giftId": "5655",
-    "giftName": "Gift",
+    "giftName": "Rose",
     "diamondCount": 1,
     "giftPictureUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.png",
-    "lastSeenAt": 1786625921417
+    "lastSeenAt": 1786692967822
   },
   {
     "giftId": "5487",
@@ -40,5 +40,12 @@
     "diamondCount": 1,
     "giftPictureUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/heartme_outfit/base_heartme_composition.png~tplv-obj.png",
     "lastSeenAt": 1785931540058
+  },
+  {
+    "giftId": "133119",
+    "giftName": "Music On Stage",
+    "diamondCount": 1,
+    "giftPictureUrl": "",
+    "lastSeenAt": 1786691482576
   }
 ]
