@@ -44,7 +44,11 @@ function sanitizeGameEvent(input) {
         unitDiamondCount: Math.floor(boundedNumber(input.unitDiamondCount, 0, 100000000, 0)),
         diamondCount: Math.floor(boundedNumber(input.diamondCount, 0, 1000000000, 0)),
         likeCount: Math.floor(boundedNumber(input.likeCount, 0, 1000000, 0)),
-        spectatorOnly: input.spectatorOnly === true
+        spectatorOnly: input.spectatorOnly === true,
+        // Nhân vật nền do server tự sinh. Chỉ dùng để lấp sàn cho đỡ trống nên
+        // phải bị loại khỏi mọi số liệu thống kê, nếu không báo cáo phiên live
+        // và bảng Top tặng quà sẽ sai.
+        synthetic: input.synthetic === true
     };
 }
 

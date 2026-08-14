@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Questrial&family=Inter:wght@400;500;600;700;800&display=swap');
+/* Khong nap font tu Google Fonts: CSP cua bridge chi cho phep style-src 'self'
+   nen trinh duyet chan thang, va bang dieu khien khong nen phu thuoc Internet.
+   Font-family ben duoi da co san chuoi du phong system-ui. */
 
 /* ─── Design Tokens ──────────────────────────────────────── */
 :root {
@@ -102,7 +104,8 @@
     display: flex;
     flex-direction: column;
     gap: 5px;
-    min-width: 90px;
+    /* Đủ rộng cho nhãn "Cách khớp" khỏi bị xuống dòng */
+    min-width: 104px;
 }
 .rule-src-col select { font-size: 11px; padding: 3px 6px; }
 
@@ -758,10 +761,12 @@ input:focus, select:focus {
     align-items: center;
 }
 
-/* Dòng 2: action + duration + label + variant + fireworks + buttons */
+/* Dòng 2: action + kim cương + giây + label + variant + fireworks + buttons.
+   Số cột phải khớp đúng số phần tử con, nếu thiếu thì phần tử cuối bị đẩy
+   xuống dòng mới và các nút Test/Xóa rơi khỏi hàng. */
 .rule-row-bot {
     display: grid;
-    grid-template-columns: 1.2fr 0.6fr 1fr 0.8fr 0.5fr auto;
+    grid-template-columns: 1.2fr 0.6fr 0.6fr 1fr 0.8fr 0.5fr auto;
     gap: 8px;
     align-items: end;
 }
@@ -946,3 +951,12 @@ kbd {
     font-size: 12px;
     color: var(--text-2);
 }
+
+/* ─── Nhân vật nền lấp sàn ───────────────────────────────── */
+.filler-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+#filler-state.on  { color: var(--green); border-color: var(--green-border); background: var(--green-dim); }
+#filler-state.off { color: var(--text-3); }

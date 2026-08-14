@@ -50,6 +50,11 @@ namespace TikTokLiveGame
                 return;
             }
 
+            // Khong co media thi phai TAT renderer. Quad duoc tao bang
+            // CreatePrimitive nen dang giu material trang mac dinh cua Unity —
+            // de nguyen se thanh mot khoi trang to giua khung hinh live. Tat di
+            // thi lo ra o man hinh LED da ve san trong anh nen, dep hon nhieu.
+            GetComponent<Renderer>().enabled = false;
             Debug.Log("DJ screen is ready. Add a video or PNG/JPG image to the DJ_VIDEO folder.");
         }
 

@@ -33,6 +33,13 @@ namespace TikTokLiveGame
             playerManager = FindFirstObjectByType<PlayerManager>();
         }
 
+        /// <summary>
+        /// Camera đang bám một người nào đó. Hành động thường chỉ được chen vào
+        /// khi cờ này tắt, nếu không live đông người sẽ giật liên tục vì ai làm
+        /// gì cũng kéo camera về phía mình.
+        /// </summary>
+        public bool IsBusy => Time.time < focusUntil;
+
         public void Focus(PlayerActor actor, float seconds, bool vip, bool wide = false)
         {
             if (actor == null) return;

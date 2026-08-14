@@ -94,6 +94,35 @@
         <div class="card">
             <div class="card-header">
                 <div>
+                    <p class="card-label">Nhân vật nền</p>
+                    <h2 class="card-title">👥 Lấp sàn khi vắng</h2>
+                </div>
+                <span class="src-badge" id="filler-state">Đang tắt</span>
+            </div>
+            <div class="filler-row">
+                <div class="rule-field">
+                    <span class="rule-field-label">Số nhân vật</span>
+                    <input id="filler-count" type="number" min="0" max="60" value="12">
+                </div>
+                <div class="rule-field">
+                    <span class="rule-field-label">Hành động mỗi (giây)</span>
+                    <input id="filler-interval" type="number" min="0.5" max="120" step="0.5" value="4">
+                </div>
+            </div>
+            <div class="input-row" style="margin-top:10px;">
+                <button id="filler-spawn" class="btn btn-primary btn-full">Thả nhân vật nền</button>
+                <button id="filler-clear" class="btn btn-secondary">Xoá hết</button>
+            </div>
+            <p class="help">
+                Chạy song song với live thật, tự nhảy và đi vòng để sàn đỡ trống.
+                Không sinh gift hay like giả, và <strong>không tính vào</strong> thống kê phiên,
+                Top tặng quà hay báo cáo — số liệu vẫn chỉ là người thật.
+            </p>
+        </div>
+
+        <div class="card">
+            <div class="card-header">
+                <div>
                     <p class="card-label">Phím tắt</p>
                     <h2 class="card-title">Điều khiển Game</h2>
                 </div>
@@ -430,14 +459,20 @@
             </label>
             <div class="rule-src-col">
                 <span class="src-badge gift" data-src-label>GIFT</span>
-                <select data-field="source">
-                    <option value="gift">🎁 Gift</option>
-                    <option value="chat">💬 Chat</option>
-                </select>
-                <select data-field="match">
-                    <option value="exact">Chính xác</option>
-                    <option value="contains">Có chứa</option>
-                </select>
+                <div class="rule-field">
+                    <span class="rule-field-label">Loại luật</span>
+                    <select data-field="source">
+                        <option value="gift">🎁 Gift</option>
+                        <option value="chat">💬 Chat</option>
+                    </select>
+                </div>
+                <div class="rule-field">
+                    <span class="rule-field-label">Cách khớp</span>
+                    <select data-field="match">
+                        <option value="exact">Chính xác</option>
+                        <option value="contains">Có chứa</option>
+                    </select>
+                </div>
             </div>
             <div class="rule-field">
                 <span class="rule-field-label">Từ khoá / Tên gift</span>
@@ -452,17 +487,23 @@
             <div class="rule-field">
                 <span class="rule-field-label">Hành động</span>
                 <select data-field="action">
-                    <option value="join">Tham gia sàn</option>
+                    <option value="join">Tham gia sàn (rơi xuống)</option>
+                    <option value="drop">Rơi từ trên trời</option>
                     <option value="dance">Nhảy</option>
-                    <option value="camera">Zoom camera</option>
-                    <option value="change">Đổi nhân vật</option>
+                    <option value="jump">Nhảy bật tại chỗ</option>
                     <option value="walk">Đi vòng</option>
+                    <option value="change">Đổi nhân vật</option>
                     <option value="grow">Phóng lớn</option>
+                    <option value="camera">Zoom camera</option>
                     <option value="medal">Cánh + huy hiệu</option>
                     <option value="vip">VIP camera</option>
                     <option value="topdj">Top DJ + pháo hoa</option>
                     <option value="fireworks">Pháo hoa</option>
                 </select>
+            </div>
+            <div class="rule-field">
+                <span class="rule-field-label">💎 Kim cương</span>
+                <input data-field="displayDiamonds" type="number" min="0" max="1000000" placeholder="0">
             </div>
             <div class="rule-field">
                 <span class="rule-field-label">Giây</span>

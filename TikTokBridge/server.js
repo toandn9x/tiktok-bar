@@ -29,6 +29,7 @@ const initialObservedGifts = require('./config/observed-gifts.json');
 const { normalizeText, sanitizeMasterConfig, resolveMasterRule, applyRule, applyBuiltInChatCommand } = require('./src/master/rules');
 const logger = require('./src/logger');
 const sessions = require('./src/sessions');
+const { createFillerCrowd } = require('./src/filler-crowd');
 const {
     cleanText,
     sanitizeGameEvent,
@@ -91,6 +92,10 @@ const observedGifts = new Map((Array.isArray(initialObservedGifts) ? initialObse
     .map(gift => [String(gift.giftId || gift.giftName || ''), gift])
     .filter(([key]) => key));
 let observedGiftSaveTimer = null;
+
+// Nhân vật nền lấp sàn. Dùng được cả khi đang live thật vì mọi sự kiện nó phát
+// ra đều mang cờ synthetic nên không lọt vào số liệu.
+const fillerCrowd = createFillerCrowd({ emit: event => processGameEvent(event) });
 
 if (!ALLOW_LAN && !isLoopbackAddress(HOST) && HOST.toLowerCase() !== 'localhost') {
     throw new Error('Từ chối mở Node ra mạng LAN. Chỉ đặt ALLOW_LAN=1 khi đã có lớp xác thực bên ngoài.');
@@ -303,7 +308,10 @@ function learnObservedGift(event) {
 
 function isRealObservedGift(event) {
     const giftId = String(event.giftId || '');
-    return event.userId !== 'master-test' && !giftId.startsWith('demo-') && !giftId.startsWith('master-');
+    return !event.synthetic &&
+        event.userId !== 'master-test' &&
+        !giftId.startsWith('demo-') &&
+        !giftId.startsWith('master-');
 }
 
 /**
@@ -355,6 +363,8 @@ function finalizeSession(reason = '') {
 
 function resetSessionState(source = metrics.source) {
     finalizeSession('bắt đầu phiên mới');
+    // Kết nối live mới thì sàn phải sạch: bỏ luôn nhân vật nền của phiên trước.
+    fillerCrowd.clear();
     metrics = { ...createMetrics(), source, startedAt: source === 'idle' ? null : Date.now() };
     sessionPlayers.clear();
     sessionVipScores.clear();
@@ -479,7 +489,7 @@ function emitGameEvent(event) {
             avatar: nonEmpty(event.avatar, previous.avatar || ''),
             lastActive: now
         };
-        if (event.type === 'gift') {
+        if (event.type === 'gift' && !event.synthetic) {
             playerState.giftPower =
                 Math.max(0, Number(previous.giftPower) || 0) +
                 Math.max(0, Number(event.diamondCount) || 0);
@@ -492,26 +502,31 @@ function emitGameEvent(event) {
         sessionPlayers.set(event.userId, playerState);
         pruneSessionPlayers(now);
     }
-    metrics.events += 1;
-    if (event.type === 'member') metrics.members += 1;
-    if (event.type === 'chat') metrics.chats += 1;
-    if (event.type === 'gift') {
-        metrics.gifts += 1;
-        metrics.diamonds += event.diamondCount;
-        const vip = sessionVipScores.get(event.userId) || {
-            userId: event.userId,
-            nickname: event.nickname,
-            avatar: event.avatar,
-            score: 0
-        };
-        vip.nickname = nonEmpty(event.nickname, vip.nickname || 'TikTok user');
-        vip.avatar = nonEmpty(event.avatar, vip.avatar || '');
-        vip.score += event.diamondCount;
-        sessionVipScores.set(event.userId, vip);
+    // Nhân vật nền chỉ để lấp sàn cho đỡ trống, tuyệt đối không được cộng vào
+    // số liệu nào: HUD, bảng Top VIP và lịch sử phiên phải chỉ phản ánh người
+    // thật, nếu không báo cáo doanh thu sẽ sai.
+    if (!event.synthetic) {
+        metrics.events += 1;
+        if (event.type === 'member') metrics.members += 1;
+        if (event.type === 'chat') metrics.chats += 1;
+        if (event.type === 'gift') {
+            metrics.gifts += 1;
+            metrics.diamonds += event.diamondCount;
+            const vip = sessionVipScores.get(event.userId) || {
+                userId: event.userId,
+                nickname: event.nickname,
+                avatar: event.avatar,
+                score: 0
+            };
+            vip.nickname = nonEmpty(event.nickname, vip.nickname || 'TikTok user');
+            vip.avatar = nonEmpty(event.avatar, vip.avatar || '');
+            vip.score += event.diamondCount;
+            sessionVipScores.set(event.userId, vip);
+        }
+        if (event.type === 'like') metrics.likes += event.likeCount;
     }
-    if (event.type === 'like') metrics.likes += event.likeCount;
     broadcast(event);
-    broadcastMetrics();
+    if (!event.synthetic) broadcastMetrics();
 }
 
 function processGameEvent(inputEvent) {
@@ -522,7 +537,8 @@ function processGameEvent(inputEvent) {
     const joinsByKeyword = event.type === 'chat' && event.action === 'join';
     const joinsBySocial = event.type === 'follow' || event.type === 'share';
     event.joinedNow = Boolean((joinsByKeyword || joinsBySocial) && !isKnownPlayer);
-    if (metrics.source !== 'demo' && masterConfig.joinMode === 'keyword_only' && !isKnownPlayer) {
+    // Nhân vật nền luôn được vào sàn, không phải qua điều kiện từ khoá.
+    if (!event.synthetic && metrics.source !== 'demo' && masterConfig.joinMode === 'keyword_only' && !isKnownPlayer) {
         const joinsByGift = event.type === 'gift' && masterConfig.giftAlwaysJoins;
         event.spectatorOnly = !(joinsByKeyword || joinsByGift || joinsBySocial);
     }
@@ -843,6 +859,7 @@ async function handleClientMessage(ws, message) {
         });
         send(ws, { type: 'status', ...connectionStatus });
         send(ws, { type: 'metrics', ...metrics });
+        send(ws, { type: 'filler_state', ...fillerCrowd.state() });
         if (ws.role === 'control') send(ws, { type: 'master_config', master: masterConfig });
         if (ws.role === 'control') send(ws, giftCatalogMessage());
         if (ws.role === 'overlay') {
@@ -856,7 +873,8 @@ async function handleClientMessage(ws, message) {
 
     const controlOnly = message.type === 'master_save' || message.type === 'master_test';
     const operatorOnly = new Set([
-        'set_username', 'disconnect_tiktok', 'demo_start', 'demo_stop', 'demo_event', 'reset_game'
+        'set_username', 'disconnect_tiktok', 'demo_start', 'demo_stop', 'demo_event', 'reset_game',
+        'filler_spawn', 'filler_clear'
     ]).has(message.type);
     if (controlOnly && ws.role !== 'control') {
         return send(ws, { type: 'error', message: 'Lệnh này chỉ dành cho bảng Master.' });
@@ -946,6 +964,21 @@ async function handleClientMessage(ws, message) {
         stopDemo();
         setStatus('idle', null, 'Đã dừng demo');
         return;
+    }
+
+    if (message.type === 'filler_spawn') {
+        const result = fillerCrowd.spawn(message.count, message.intervalMs);
+        logger.info('filler', `Sinh ${result.count} nhân vật nền`,
+            `mỗi ${(result.intervalMs / 1000).toFixed(1)}s một hành động`);
+        return broadcast({ type: 'filler_state', ...fillerCrowd.state() });
+    }
+
+    if (message.type === 'filler_clear') {
+        for (const userId of fillerCrowd.userIds()) sessionPlayers.delete(userId);
+        fillerCrowd.clear();
+        logger.info('filler', 'Đã xoá toàn bộ nhân vật nền');
+        broadcast(createSnapshot());
+        return broadcast({ type: 'filler_state', ...fillerCrowd.state() });
     }
     if (message.type === 'demo_event') {
         return emitDemoAction(

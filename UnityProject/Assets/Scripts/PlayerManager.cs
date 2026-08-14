@@ -175,7 +175,10 @@ namespace TikTokLiveGame
 
         private static void ApplyAction(PlayerActor actor, TikTokEvent data, float duration)
         {
-            if (data.action == "join") actor.ReturnToAssignedSlot();
+            // "join" truoc day chi goi ReturnToAssignedSlot() tuc la dat lai vi
+            // tri ve dung cho dang dung — khong he co hieu ung gi. Gio cho roi
+            // lai tu tren troi, giong y pha vao san luc moi tao nhan vat.
+            if (data.action is "join" or "drop") actor.DropFromSky();
             else if (data.action == "change") actor.ChangeCharacter();
             else if (data.action == "walk") actor.Walk(duration);
             else if (data.action == "jump") actor.Jump(duration);

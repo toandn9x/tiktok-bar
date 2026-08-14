@@ -15,6 +15,10 @@ namespace TikTokLiveGame
         private TextMesh rankLabel;
         private TextMesh titleLabel;
         private TextMesh titleShadowLabel;
+        private Renderer highlightRenderer;
+        private Material highlightMaterial;
+        private static readonly int HighlightColorId = Shader.PropertyToID("_Color");
+        private static readonly int HighlightSpinId = Shader.PropertyToID("_Spin");
         private Vector3 home;
         private Vector3 normalHome;
         private float phase;
@@ -76,6 +80,8 @@ namespace TikTokLiveGame
             characterRenderer.sortingOrder = Mathf.RoundToInt((12f - position.z) * 100f);
             flipbook = character.AddComponent<SpriteFlipbook>();
             ChangeCharacter();
+
+            CreateHighlightRing();
 
             GameObject wingAnchorObject = new("Wing Anchor");
             wingAnchorObject.transform.SetParent(transform, false);
@@ -459,10 +465,39 @@ namespace TikTokLiveGame
             targetAlpha = Mathf.Clamp01(alpha);
         }
 
+        /// <summary>
+        /// Vòng sáng dưới chân, bật lên khi nhân vật đang được lấy nét. Dùng
+        /// chung shader Custom/LightPool ở chế độ vòng gobo với đèn sàn.
+        /// </summary>
+        private void CreateHighlightRing()
+        {
+            Shader shader = Shader.Find("Custom/LightPool");
+            if (shader == null) return;
+
+            GameObject ring = GameObject.CreatePrimitive(PrimitiveType.Quad);
+            ring.name = "Highlight Ring";
+            Destroy(ring.GetComponent<Collider>());
+            ring.transform.SetParent(transform, false);
+            // Nằm ngang sát mặt sàn, nhỉnh lên chút cho khỏi z-fighting
+            ring.transform.localPosition = new Vector3(0f, 0.04f, 0f);
+            ring.transform.localRotation = Quaternion.Euler(90f, 0f, 0f);
+            ring.transform.localScale = Vector3.one * 1.9f;
+
+            highlightMaterial = new Material(shader);
+            highlightMaterial.SetFloat("_Mode", 1f);
+            highlightMaterial.SetFloat("_RingWidth", 0.26f);
+            highlightMaterial.SetFloat("_Dashes", 22f);
+            ring.GetComponent<Renderer>().sharedMaterial = highlightMaterial;
+
+            highlightRenderer = ring.GetComponent<Renderer>();
+            highlightRenderer.enabled = false;
+        }
+
         public void SetGiftFocus(bool focused)
         {
             giftFocused = focused;
             giftFocusScale = focused ? 1.08f : 1f;
+            if (highlightRenderer != null) highlightRenderer.enabled = focused;
             RefreshBadgeVisibility();
             if (focused && action != ActionState.Walk) Celebrate(3f);
         }
@@ -470,6 +505,18 @@ namespace TikTokLiveGame
         public void ReturnToAssignedSlot()
         {
             transform.position = home;
+        }
+
+        /// <summary>
+        /// Cho nhân vật rơi lại từ trên trời xuống đúng chỗ của mình — chính là
+        /// pha vào sàn lúc mới tạo. Gọi được nhiều lần, mỗi lần chạy lại từ đầu.
+        /// </summary>
+        public void DropFromSky()
+        {
+            spawnDropPending = false;
+            spawnDropping = true;
+            spawnDropStartedAt = Time.time;
+            transform.position = home + Vector3.up * SpawnDropHeight;
         }
 
         private void SetAction(ActionState next, float seconds)
@@ -561,6 +608,16 @@ namespace TikTokLiveGame
                 : -characterRenderer.sprite.bounds.min.y * displayedScale.y - rawHeight * BottomPaddingFraction();
             body.localPosition = Vector3.up * (groundOffset + bounce);
             UpdateDecorationPositions(bounce);
+
+            if (highlightMaterial != null && highlightRenderer != null && highlightRenderer.enabled)
+            {
+                float ringBeat = ClubBeatClock.Beat;
+                float ringPulse = Mathf.Exp(-(ringBeat - Mathf.Floor(ringBeat)) * 5f);
+                Color ringTint = new Color(1f, 0.86f, 0.32f) * (0.85f + ringPulse * 0.95f);
+                ringTint.a = 1f;
+                highlightMaterial.SetColor(HighlightColorId, ringTint);
+                highlightMaterial.SetFloat(HighlightSpinId, Time.time * 0.35f);
+            }
 
             Camera camera = Camera.main;
             if (camera != null)

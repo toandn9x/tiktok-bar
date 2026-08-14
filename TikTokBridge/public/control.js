@@ -33,6 +33,12 @@ const ui = {
     eulerConnect:   document.getElementById('euler-connect'),
     eulerDisconnect:document.getElementById('euler-disconnect'),
     eulerHelp:      document.getElementById('euler-help'),
+    // Nhân vật nền lấp sàn
+    fillerCount:    document.getElementById('filler-count'),
+    fillerInterval: document.getElementById('filler-interval'),
+    fillerSpawn:    document.getElementById('filler-spawn'),
+    fillerClear:    document.getElementById('filler-clear'),
+    fillerState:    document.getElementById('filler-state'),
     // Test lab
     stopDemo:       document.getElementById('stop-demo'),
     // Session
@@ -164,20 +170,30 @@ function renderMaster(config) {
     ui.masterRules.replaceChildren(...(masterConfig.rules || []).map(createRuleRow));
 }
 
+// Đọc một ô trong dòng luật. Trả về '' khi template thiếu ô đó, thay vì để
+// querySelector trả null rồi làm sập cả hàm lưu — mất luôn khả năng lưu config.
+function fieldValue(row, name) {
+    return row.querySelector(`[data-field="${name}"]`)?.value ?? '';
+}
+
+function fieldChecked(row, name) {
+    return row.querySelector(`[data-field="${name}"]`)?.checked ?? false;
+}
+
 function readMasterFromUi() {
     const rules = [...ui.masterRules.querySelectorAll('.master-rule-row')].map(row => ({
         id:              row.dataset.ruleId,
-        enabled:         row.querySelector('[data-field="enabled"]').checked,
-        source:          row.querySelector('[data-field="source"]').value,
-        trigger:         row.querySelector('[data-field="trigger"]').value.trim(),
-        giftId:          row.querySelector('[data-field="giftId"]').value.trim(),
-        match:           row.querySelector('[data-field="match"]').value,
-        action:          row.querySelector('[data-field="action"]').value,
-        displayDiamonds: Number(row.querySelector('[data-field="displayDiamonds"]').value) || 0,
-        durationMs:      Math.round((Number(row.querySelector('[data-field="durationSeconds"]').value) || 0) * 1000),
-        label:           row.querySelector('[data-field="label"]').value.trim(),
-        variant:         row.querySelector('[data-field="variant"]').value,
-        fireworkBursts:  Number(row.querySelector('[data-field="fireworkBursts"]').value) || 0,
+        enabled:         fieldChecked(row, 'enabled'),
+        source:          fieldValue(row, 'source'),
+        trigger:         fieldValue(row, 'trigger').trim(),
+        giftId:          fieldValue(row, 'giftId').trim(),
+        match:           fieldValue(row, 'match'),
+        action:          fieldValue(row, 'action'),
+        displayDiamonds: Number(fieldValue(row, 'displayDiamonds')) || 0,
+        durationMs:      Math.round((Number(fieldValue(row, 'durationSeconds')) || 0) * 1000),
+        label:           fieldValue(row, 'label').trim(),
+        variant:         fieldValue(row, 'variant'),
+        fireworkBursts:  Number(fieldValue(row, 'fireworkBursts')) || 0,
     }));
     return { joinMode: ui.joinMode.value, giftAlwaysJoins: ui.giftAlwaysJoins.checked, rules };
 }
@@ -413,6 +429,16 @@ async function loadLogs() {
     }
 }
 
+/* ═══ NHÂN VẬT NỀN ═══════════════════════════════════════ */
+function setFillerState(data) {
+    if (!ui.fillerState) return;
+    const running = data.running && data.count > 0;
+    ui.fillerState.textContent = running
+        ? `${data.count} nhân vật · ${(data.intervalMs / 1000).toFixed(1)}s`
+        : 'Đang tắt';
+    ui.fillerState.className = 'src-badge ' + (running ? 'on' : 'off');
+}
+
 /* ═══ SERVER CONFIG ══════════════════════════════════════ */
 function applyServerConfig(data) {
     // Server chi bao da co key hay chua, khong gui key that ra ngoai.
@@ -435,6 +461,7 @@ function connectSocket() {
         let data;
         try { data = JSON.parse(event.data); } catch { return; }
         if (data.type === 'config')         applyServerConfig(data);
+        if (data.type === 'filler_state')   setFillerState(data);
         if (data.type === 'status' || data.type === 'error') setStatus(data);
         if (data.type === 'metrics')        setMetrics(data);
         if (data.type === 'master_config')  renderMaster(data.master);
@@ -488,6 +515,14 @@ if (ui.eulerConnect) {
     }
 }
 ui.eulerDisconnect?.addEventListener('click', () => send({ type: 'disconnect_tiktok' }));
+
+/* ═══ NHÂN VẬT NỀN ═══════════════════════════════════════ */
+ui.fillerSpawn?.addEventListener('click', () => send({
+    type: 'filler_spawn',
+    count: Number(ui.fillerCount.value) || 0,
+    intervalMs: Math.round((Number(ui.fillerInterval.value) || 4) * 1000),
+}));
+ui.fillerClear?.addEventListener('click', () => send({ type: 'filler_clear' }));
 
 /* ═══ BÁO CÁO ════════════════════════════════════════════ */
 document.getElementById('report-refresh')?.addEventListener('click', loadReport);

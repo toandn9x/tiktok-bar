@@ -121,7 +121,15 @@ namespace TikTokLiveGame
 
             bool joinFocus = liveEvent.action == "join" && liveEvent.joinedNow;
             bool socialFocus = liveEvent.type is "follow" or "share";
-            bool requestsFocus = joinFocus || socialFocus || liveEvent.action is "camera" or "walk" or "vip" or "topdj" or "fireworks" or "medal";
+            // Hành động quan trọng luôn được lấy nét, kể cả khi camera đang bận.
+            bool majorFocus = liveEvent.action is "camera" or "walk" or "vip" or "topdj" or "fireworks" or "medal";
+            // Hành động thường giờ cũng được lấy nét, nhưng chỉ chen vào lúc
+            // camera rảnh — nếu không thì live đông người camera sẽ giật loạn.
+            // "join" nằm ở đây để lần vào sàn thứ hai trở đi vẫn có camera liếc
+            // qua, vì joinFocus phía trên chỉ đúng đúng một lần đầu tiên.
+            bool casualAction = liveEvent.action is "dance" or "change" or "grow" or "jump" or "drop" or "join";
+            bool casualFocus = casualAction && clubCamera != null && !clubCamera.IsBusy;
+            bool requestsFocus = joinFocus || socialFocus || majorFocus || casualFocus;
             if (requestsFocus && (liveEvent.type is "gift" or "chat" or "follow" or "share"))
             {
                 PlayerActor actor = playerManager.Find(liveEvent.userId);
@@ -144,8 +152,12 @@ namespace TikTokLiveGame
                 // the crowd dimming and VIP decoration handled by PlayerManager.
                 if (!joinFocus && !socialFocus)
                 {
+                    // Làm nổi người đang được lấy nét: mờ đám đông, phóng to
+                    // nhân vật và bật vòng sáng dưới chân.
                     playerManager.FocusPlayer(liveEvent.userId, focusSeconds);
-                    StartCoroutine(CinematicGift(focusSeconds));
+                    // Chỉ hành động quan trọng mới dùng tới cú máy điện ảnh,
+                    // nếu không thì mỗi lần ai đó nhảy là cả sàn tối đi.
+                    if (majorFocus) StartCoroutine(CinematicGift(focusSeconds));
                 }
             }
         }

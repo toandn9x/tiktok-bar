@@ -210,10 +210,32 @@ set "BUILD_RESULT=%ERRORLEVEL%"
 if not "%BUILD_RESULT%"=="0" goto build_failed
 if not exist "%GAME_EXE%" goto build_failed
 
+rem -----------------------------------------------------------------
+rem Dong bo asset ra thu muc Build.
+rem
+rem Dung robocopy /MIR chu KHONG dung xcopy /Y. xcopy chi ghi them va ghi de,
+rem no khong bao gio xoa file da bien mat o nguon, nen asset cu nam lai trong
+rem Build\ vinh vien. Da tung gay ra chuyen xoa DJ_VIDEO\dj.mp4 o nguon roi
+rem build lai ma game van phat video do, vi no doc ban copy canh file exe.
+rem robocopy tra ve 0-7 la thanh cong, tu 8 tro len moi la loi.
+rem -----------------------------------------------------------------
 echo Dang dong goi LiveAssets, DJ_MUSIC va DJ_VIDEO...
-if exist "%ROOT%LiveAssets" xcopy "%ROOT%LiveAssets" "%BUILD_DIR%\LiveAssets\" /E /I /Y /Q >nul
-if exist "%ROOT%DJ_MUSIC" xcopy "%ROOT%DJ_MUSIC" "%BUILD_DIR%\DJ_MUSIC\" /E /I /Y /Q >nul
-if exist "%ROOT%DJ_VIDEO" xcopy "%ROOT%DJ_VIDEO" "%BUILD_DIR%\DJ_VIDEO\" /E /I /Y /Q >nul
+call :mirror "%ROOT%LiveAssets" "%BUILD_DIR%\LiveAssets"
+call :mirror "%ROOT%DJ_MUSIC" "%BUILD_DIR%\DJ_MUSIC"
+call :mirror "%ROOT%DJ_VIDEO" "%BUILD_DIR%\DJ_VIDEO"
+goto assets_done
+
+:mirror
+if not exist "%~1" (
+    rem Nguon khong con thi thu muc dich cung phai bien mat theo
+    if exist "%~2" rd /s /q "%~2"
+    exit /b 0
+)
+robocopy "%~1" "%~2" /MIR /NFL /NDL /NJH /NJS /NP >nul
+if errorlevel 8 echo [CANH BAO] Khong dong bo duoc %~nx1 ra thu muc Build.
+exit /b 0
+
+:assets_done
 
 echo.
 echo [THANH CONG] Da tao: %GAME_EXE%

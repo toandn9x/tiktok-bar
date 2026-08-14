@@ -1,0 +1,26 @@
+# Git tu chuan hoa xuong dong khi commit. Neu khong ep kieu o day thi may nao
+# co core.autocrlf=false se nhan file .bat dang LF — cmd.exe parse sai, va cac
+# chuong trinh con dang "call :label" + "exit /b" se vo, bao loi kieu
+# 'm' is not recognized as an internal or external command.
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+*.ps1   text eol=crlf
+
+# Shell script thi nguoc lai, bat buoc LF
+*.sh    text eol=lf
+
+# Nhi phan, git khong duoc dong vao
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.mp3   binary
+*.wav   binary
+*.ogg   binary
+*.m4a   binary
+*.mp4   binary
+*.mov   binary
+*.webm  binary
+*.fbx   binary
+*.exe   binary
+*.dll   binary

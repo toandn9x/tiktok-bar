@@ -1,7 +1,13 @@
 const crypto = require('node:crypto');
 
 const SOURCES = new Set(['chat', 'gift']);
-const ACTIONS = new Set(['join', 'dance', 'camera', 'change', 'walk', 'grow', 'medal', 'vip', 'topdj', 'fireworks']);
+// Phải khớp đúng các nhánh action mà PlayerManager.ApplyAction xử lý bên Unity,
+// và khớp danh sách <option> trong control.html. Thiếu ở đây thì hành động đó
+// vẫn chạy được nhưng không ai chọn được từ bảng Master.
+const ACTIONS = new Set([
+    'join', 'drop', 'dance', 'jump', 'walk', 'change', 'grow',
+    'camera', 'medal', 'vip', 'topdj', 'fireworks'
+]);
 
 function normalizeText(value) {
     return String(value || '')
