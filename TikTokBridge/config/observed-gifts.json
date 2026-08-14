@@ -4,7 +4,7 @@
     "giftName": "Rose",
     "diamondCount": 1,
     "giftPictureUrl": "https://p19-webcast.tiktokcdn.com/img/maliva/webcast-va/eba3a9bb85c33e017f3648eaf88d7189~tplv-obj.png",
-    "lastSeenAt": 1786692967822
+    "lastSeenAt": 1786695574060
   },
   {
     "giftId": "5487",
@@ -25,7 +25,7 @@
     "giftName": "You're awesome",
     "diamondCount": 1,
     "giftPictureUrl": "https://p19-webcast.tiktokcdn.com/img/alisg/webcast-sg/resource/e9cafce8279220ed26016a71076d6a8a.png~tplv-obj.png",
-    "lastSeenAt": 1785930087744
+    "lastSeenAt": 1786693492231
   },
   {
     "giftId": "8913",
@@ -46,6 +46,20 @@
     "giftName": "Music On Stage",
     "diamondCount": 1,
     "giftPictureUrl": "",
-    "lastSeenAt": 1786691482576
+    "lastSeenAt": 1786693984300
+  },
+  {
+    "giftId": "6064",
+    "giftName": "GG",
+    "diamondCount": 1,
+    "giftPictureUrl": "",
+    "lastSeenAt": 1786693473833
+  },
+  {
+    "giftId": "19438",
+    "giftName": "Pop",
+    "diamondCount": 1,
+    "giftPictureUrl": "",
+    "lastSeenAt": 1786693771387
   }
 ]

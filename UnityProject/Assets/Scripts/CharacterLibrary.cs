@@ -7,9 +7,15 @@ namespace TikTokLiveGame
 {
     public static class CharacterLibrary
     {
+        // Đã bỏ "d" và "k": hai bộ này có chữ vẽ SẴN TRONG ẢNH sprite — "d" mang
+        // dòng chữ Trung Quốc 傻逼来了我走了 (là câu chửi thề), "k" mang dòng
+        // "open your eyes". Camera nhìn từ phía +Z nên mọi sprite đều bị lật
+        // ngang, chữ trong ảnh hiện ra ngược đọc không nổi, trông như lỗi hiển
+        // thị. Muốn dùng lại thì phải xoá chữ khỏi chính file ảnh trong
+        // Resources/Characters/, không sửa được bằng code.
         private static readonly string[] Names =
         {
-            "a", "b", "c", "d", "e", "g", "h", "j", "k",
+            "a", "b", "c", "e", "g", "h", "j",
             "mushroom_dance_01", "mushroom_dance_15", "mushroom_magic_02",
             "hanhan_video_dance"
         };

@@ -6,9 +6,12 @@ namespace TikTokLiveGame
     [RequireComponent(typeof(Camera))]
     public sealed class ClubCameraController : MonoBehaviour
     {
-        private readonly Vector3 defaultPosition = new(0f, 9.2f, 17.2f);
+        // Góc máy tự do ở giữa. Chúc xuống 38 độ thay vì 23 độ như trước, để
+        // đám đông giãn ra theo chiều sâu — người đứng trước to, người sau nhỏ
+        // dần — thay vì dồn thành một mảng phẳng khi sàn đông.
+        private readonly Vector3 defaultPosition = new(0f, 13.5f, 15f);
         private readonly Vector3 focusWideBasePosition = new(0f, 7.2f, 14.2f);
-        private readonly Vector3 defaultLookAt = new(0f, 1.25f, -1.2f);
+        private readonly Vector3 defaultLookAt = new(0f, 0.2f, -2f);
         private Transform focusTarget;
         private float focusUntil;
         private bool focusVip;

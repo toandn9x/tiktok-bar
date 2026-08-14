@@ -239,9 +239,17 @@ namespace TikTokLiveGame
         {
             int count = playerOrder.Count;
             float scale = count <= 30 ? 0.65f : count <= 80 ? 0.56f : count <= 140 ? 0.46f : count <= 200 ? 0.38f : count <= 280 ? 0.32f : 0.27f;
-            const float xSpacing = 0.5f;
-            const float frontEdge = 3.75f;
-            const float backEdge = -3.65f;
+            // Hàng trước đẩy ra tận z = 7 để đám đông lấn kín đáy khung. Với góc
+            // máy 38 độ, mốc z = 3.75 cũ chỉ tới 76% chiều cao khung nên 24%
+            // đáy bỏ trống. Hàng sau cũng lùi thêm cho giãn bớt, đỡ chồng lấn.
+            const float frontEdge = 7f;
+            const float backEdge = -5.5f;
+            // Khung nhìn hẹp lại khi tới gần camera, nên hàng trước phải bó hẹp
+            // theo trục X còn hàng sau xoè rộng — cả khối thành hình thang khớp
+            // đúng khung hình. Bó theo một xSpacing cố định thì hàng trước tràn
+            // ra ngoài mép còn hàng sau lại hở hai bên.
+            const float frontHalfWidth = 3.3f;
+            const float backHalfWidth = 5.6f;
             float zSpacing = (frontEdge - backEdge) / (CrowdRows - 1);
             foreach (string userId in playerOrder)
             {
@@ -253,10 +261,12 @@ namespace TikTokLiveGame
                 }
                 int row = slot / CrowdColumns;
                 int column = slot % CrowdColumns;
-                float stagger = row % 2 == 0 ? 0f : xSpacing * 0.5f;
-                float x = (column - (CrowdColumns - 1) * 0.5f) * xSpacing + stagger;
                 float z = frontEdge - row * zSpacing;
                 float depthRatio = row / (float)(CrowdRows - 1);
+                float halfWidth = Mathf.Lerp(frontHalfWidth, backHalfWidth, depthRatio);
+                float columnRatio = CrowdColumns > 1 ? column / (float)(CrowdColumns - 1) : 0.5f;
+                float stagger = row % 2 == 0 ? 0f : halfWidth / (CrowdColumns - 1);
+                float x = (columnRatio - 0.5f) * 2f * halfWidth + stagger;
                 float perspectiveScale = scale * Mathf.Lerp(1.06f, 0.86f, depthRatio);
                 actor.SetCrowdSlot(new Vector3(x, 0f, z), perspectiveScale);
             }

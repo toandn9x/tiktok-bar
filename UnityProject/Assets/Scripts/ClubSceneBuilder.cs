@@ -23,8 +23,10 @@ namespace TikTokLiveGame
                 camera = cameraObject.AddComponent<Camera>();
                 cameraObject.AddComponent<AudioListener>();
             }
-            camera.transform.position = new Vector3(0f, 7.2f, 14.2f);
-            camera.transform.LookAt(new Vector3(0f, 1.25f, -1.2f));
+            // Khớp với defaultPosition/defaultLookAt trong ClubCameraController
+            // để khung hình đầu tiên không bị nhảy góc.
+            camera.transform.position = new Vector3(0f, 13.5f, 15f);
+            camera.transform.LookAt(new Vector3(0f, 0.2f, -2f));
             camera.fieldOfView = 45f;
             camera.clearFlags = CameraClearFlags.SolidColor;
             camera.backgroundColor = new Color(0.01f, 0.005f, 0.025f);
@@ -155,6 +157,7 @@ namespace TikTokLiveGame
             CreateLaserShow();
             CreateBackdropVideoScreen();
         }
+
 
         /// <summary>
         /// Phat video lap vao dung o man hinh LED da ve san trong anh nen.
