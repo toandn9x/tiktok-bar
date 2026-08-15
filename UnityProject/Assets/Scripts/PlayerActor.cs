@@ -54,8 +54,10 @@ namespace TikTokLiveGame
         private const float JumpHeight = 2f;
         private const float WalkHorizontalRadius = 4.6f;
         private const float WalkForwardRadius = 3.6f;
-        private const float WalkHalfWidth = 5.6f;
+        private const float WalkFrontHalfWidth = 3.3f;
+        private const float WalkBackHalfWidth = 5.6f;
         private const float WalkFrontEdge = 7f;
+        private const float WalkBackEdge = -5.5f;
 
         public string UserId { get; private set; }
         public string Nickname { get; private set; }
@@ -590,17 +592,25 @@ namespace TikTokLiveGame
                 float smoothProgress = progress * progress * (3f - 2f * progress);
                 float angle = smoothProgress * Mathf.PI * 2f;
                 float horizontalWave = Mathf.Sin(angle);
+                float depthWave = Mathf.Sin(smoothProgress * Mathf.PI);
+                float floorMiddle = (WalkFrontEdge + WalkBackEdge) * 0.5f;
+                float depthDirection = walkOrigin.z >= floorMiddle ? -1f : 1f;
+                float depthRoom = depthDirection < 0f
+                    ? walkOrigin.z - WalkBackEdge
+                    : WalkFrontEdge - walkOrigin.z;
+                float depthRadius = Mathf.Min(WalkForwardRadius, Mathf.Max(0f, depthRoom));
+                float pathZ = walkOrigin.z + depthWave * depthDirection * depthRadius;
+                float depthRatio = Mathf.InverseLerp(WalkFrontEdge, WalkBackEdge, pathZ);
+                float safeHalfWidth = Mathf.Lerp(WalkFrontHalfWidth, WalkBackHalfWidth, depthRatio);
+                float pathCenterX = Mathf.Clamp(walkOrigin.x, -safeHalfWidth, safeHalfWidth);
                 float horizontalRoom = horizontalWave >= 0f
-                    ? WalkHalfWidth - walkOrigin.x
-                    : walkOrigin.x + WalkHalfWidth;
+                    ? safeHalfWidth - pathCenterX
+                    : pathCenterX + safeHalfWidth;
                 float horizontalRadius = Mathf.Min(WalkHorizontalRadius, Mathf.Max(0f, horizontalRoom));
-                float forwardRadius = Mathf.Min(WalkForwardRadius, Mathf.Max(0f, WalkFrontEdge - walkOrigin.z));
-                Vector3 circuitOffset = new(
-                    horizontalWave * horizontalRadius,
+                transform.position = new Vector3(
+                    pathCenterX + horizontalWave * horizontalRadius,
                     0f,
-                    Mathf.Sin(smoothProgress * Mathf.PI) * forwardRadius
-                );
-                transform.position = walkOrigin + circuitOffset;
+                    pathZ);
             }
             else
             {

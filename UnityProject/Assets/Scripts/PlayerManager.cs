@@ -261,14 +261,49 @@ namespace TikTokLiveGame
                 }
                 int row = slot / CrowdColumns;
                 int column = slot % CrowdColumns;
-                float z = frontEdge - row * zSpacing;
                 float depthRatio = row / (float)(CrowdRows - 1);
-                float halfWidth = Mathf.Lerp(frontHalfWidth, backHalfWidth, depthRatio);
                 float columnRatio = CrowdColumns > 1 ? column / (float)(CrowdColumns - 1) : 0.5f;
+
+                // Giữ cấu trúc hình thang nhưng phá các đường thẳng bằng nhiễu
+                // ổn định theo user + slot. Giá trị không đổi khi reflow nên user
+                // không bị giật vị trí mỗi khi có người mới vào hoặc rời sàn.
+                float nominalZ = frontEdge - row * zSpacing;
+                float edgeRatio = Mathf.Abs(columnRatio * 2f - 1f);
+                float rowCurve = -Mathf.Pow(edgeRatio, 1.6f) * Mathf.Lerp(0.2f, 0.35f, depthRatio);
+                float zJitter = StableLayoutNoise(userId, slot, 17) * 0.22f;
+                float z = Mathf.Clamp(nominalZ + rowCurve + zJitter, backEdge, frontEdge);
+
+                float actualDepthRatio = Mathf.InverseLerp(frontEdge, backEdge, z);
+                float halfWidth = Mathf.Lerp(frontHalfWidth, backHalfWidth, actualDepthRatio);
                 float stagger = row % 2 == 0 ? 0f : halfWidth / (CrowdColumns - 1);
-                float x = (columnRatio - 0.5f) * 2f * halfWidth + stagger;
-                float perspectiveScale = scale * Mathf.Lerp(1.06f, 0.86f, depthRatio);
+                float xJitter = StableLayoutNoise(userId, slot, 31) * Mathf.Lerp(0.1f, 0.18f, actualDepthRatio);
+                float x = Mathf.Clamp(
+                    (columnRatio - 0.5f) * 2f * halfWidth + stagger + xJitter,
+                    -halfWidth,
+                    halfWidth);
+
+                float scaleJitter = actor.IsTopRanked ? 1f : 1f + StableLayoutNoise(userId, slot, 47) * 0.03f;
+                float perspectiveScale = scale * Mathf.Lerp(1.06f, 0.86f, actualDepthRatio) * scaleJitter;
                 actor.SetCrowdSlot(new Vector3(x, 0f, z), perspectiveScale);
+            }
+        }
+
+        private static float StableLayoutNoise(string userId, int slot, int salt)
+        {
+            unchecked
+            {
+                uint hash = 2166136261u;
+                foreach (char character in userId ?? string.Empty)
+                {
+                    hash ^= character;
+                    hash *= 16777619u;
+                }
+                hash = (hash ^ (uint)slot) * 16777619u;
+                hash = (hash ^ (uint)salt) * 16777619u;
+                hash ^= hash >> 13;
+                hash *= 1274126177u;
+                hash ^= hash >> 16;
+                return hash / (float)uint.MaxValue * 2f - 1f;
             }
         }
 
