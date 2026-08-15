@@ -52,6 +52,10 @@ namespace TikTokLiveGame
         private const float SpawnDropHeight = 6f;
         private const float SpawnDropDuration = 1.8f;
         private const float JumpHeight = 2f;
+        private const float WalkHorizontalRadius = 4.6f;
+        private const float WalkForwardRadius = 3.6f;
+        private const float WalkHalfWidth = 5.6f;
+        private const float WalkFrontEdge = 7f;
 
         public string UserId { get; private set; }
         public string Nickname { get; private set; }
@@ -448,7 +452,8 @@ namespace TikTokLiveGame
         {
             spawnDropPending = false;
             spawnDropping = false;
-            walkOrigin = new Vector3(transform.position.x, 0f, transform.position.z);
+            // Luôn đi từ slot được cấp, không cộng dồn độ lệch nếu Walk bị gọi lại.
+            walkOrigin = new Vector3(home.x, 0f, home.z);
             transform.position = walkOrigin;
             walkStartedAt = Time.time;
             walkDuration = Mathf.Max(1f, seconds);
@@ -584,10 +589,16 @@ namespace TikTokLiveGame
                 float progress = Mathf.Clamp01((Time.time - walkStartedAt) / walkDuration);
                 float smoothProgress = progress * progress * (3f - 2f * progress);
                 float angle = smoothProgress * Mathf.PI * 2f;
+                float horizontalWave = Mathf.Sin(angle);
+                float horizontalRoom = horizontalWave >= 0f
+                    ? WalkHalfWidth - walkOrigin.x
+                    : walkOrigin.x + WalkHalfWidth;
+                float horizontalRadius = Mathf.Min(WalkHorizontalRadius, Mathf.Max(0f, horizontalRoom));
+                float forwardRadius = Mathf.Min(WalkForwardRadius, Mathf.Max(0f, WalkFrontEdge - walkOrigin.z));
                 Vector3 circuitOffset = new(
-                    Mathf.Sin(angle) * 4.6f,
+                    horizontalWave * horizontalRadius,
                     0f,
-                    Mathf.Sin(smoothProgress * Mathf.PI) * 3.6f
+                    Mathf.Sin(smoothProgress * Mathf.PI) * forwardRadius
                 );
                 transform.position = walkOrigin + circuitOffset;
             }
