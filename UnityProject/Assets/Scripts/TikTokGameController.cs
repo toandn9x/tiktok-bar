@@ -11,7 +11,6 @@ namespace TikTokLiveGame
         private GiftEffectManager giftEffects;
         private ClubCameraController clubCamera;
         private readonly Dictionary<string, Donor> donors = new();
-        private readonly List<FeedEntry> feed = new();
         private string username = "";
         private string connectionStatus = "Đang chờ Node server...";
         private int events;
@@ -57,8 +56,6 @@ namespace TikTokLiveGame
             if (Input.GetKeyDown(KeyCode.F2)) ToggleChroma();
             if (Input.GetKeyDown(KeyCode.F3)) hudVisible = !hudVisible;
             if (Input.GetKeyDown(KeyCode.F11)) Screen.fullScreen = !Screen.fullScreen;
-            for (int index = feed.Count - 1; index >= 0; index--)
-                if (Time.unscaledTime - feed[index].Time > 9f) feed.RemoveAt(index);
         }
 
         private void HandleEvent(TikTokEvent liveEvent)
@@ -82,12 +79,10 @@ namespace TikTokLiveGame
                 donors.TryGetValue(liveEvent.userId, out Donor current);
                 donors[liveEvent.userId] = new Donor(liveEvent.userId, liveEvent.nickname, current.Score + liveEvent.diamondCount);
                 AddEnergy(liveEvent.diamondCount * 2f);
-                AddFeed($"{liveEvent.nickname} tặng {liveEvent.giftName} (+{liveEvent.diamondCount})", new Color(1f, 0.55f, 0.84f));
             }
             else if (liveEvent.type == "chat")
             {
                 AddEnergy(2f);
-                AddFeed($"{liveEvent.nickname}: {liveEvent.comment}", Color.white);
             }
             else if (liveEvent.type == "like")
             {
@@ -96,11 +91,6 @@ namespace TikTokLiveGame
             else if (liveEvent.type == "member")
             {
                 AddEnergy(1f);
-                AddFeed($"{liveEvent.nickname} vào sàn", new Color(0.35f, 0.95f, 1f));
-            }
-            else if (liveEvent.type is "follow" or "share")
-            {
-                AddFeed($"{liveEvent.nickname} đã {liveEvent.type}", new Color(1f, 0.85f, 0.3f));
             }
             else if (liveEvent.type == "reset")
             {
@@ -108,7 +98,6 @@ namespace TikTokLiveGame
                 diamonds = 0;
                 partyEnergy = 0f;
                 donors.Clear();
-                feed.Clear();
             }
 
             playerManager.Handle(liveEvent);
@@ -138,7 +127,7 @@ namespace TikTokLiveGame
                 bool wideWalkFocus = liveEvent.action == "walk";
                 if (joinFocus || socialFocus)
                 {
-                    clubCamera?.QueueWelcome(actor, focusSeconds);
+                    clubCamera?.QueueWelcome(actor, focusSeconds, socialFocus);
                 }
                 else if (liveEvent.action == "fireworks")
                     clubCamera?.FocusFireworks(actor, Mathf.Max(6f, focusSeconds));
@@ -148,8 +137,8 @@ namespace TikTokLiveGame
                         focusSeconds,
                         liveEvent.action is "vip" or "topdj" || liveEvent.diamondCount >= 100,
                         wideWalkFocus);
-                // A first-time "hey" is a clean welcome shot. Gift focuses keep
-                // the crowd dimming and VIP decoration handled by PlayerManager.
+                // Welcome shots synchronize their own dimming with the camera queue.
+                // Gift and other direct focuses can apply it immediately.
                 if (!joinFocus && !socialFocus)
                 {
                     // Làm nổi người đang được lấy nét: mờ đám đông, phóng to
@@ -189,12 +178,6 @@ namespace TikTokLiveGame
             giftEffects.PartyBurst();
         }
 
-        private void AddFeed(string text, Color color)
-        {
-            feed.Add(new FeedEntry(text, color, Time.unscaledTime));
-            if (feed.Count > 7) feed.RemoveAt(0);
-        }
-
         private void OnGUI()
         {
             EnsureStyles();
@@ -202,7 +185,6 @@ namespace TikTokLiveGame
             Matrix4x4 originalMatrix = GUI.matrix;
             GUI.matrix = Matrix4x4.Scale(new Vector3(scale, scale, 1f));
             float width = Screen.width / scale;
-            float height = Screen.height / scale;
 
             if (hudVisible)
             {
@@ -210,7 +192,6 @@ namespace TikTokLiveGame
                 DrawEnergy(width);
                 DrawTopDonors(width);
             }
-            DrawFeed(height);
             if (controlsVisible) DrawControls();
 
             if (giftEffects != null && Time.unscaledTime < giftEffects.BannerUntil)
@@ -335,19 +316,6 @@ namespace TikTokLiveGame
             }
         }
 
-        private void DrawFeed(float height)
-        {
-            float y = height - 34f - feed.Count * 27f;
-            foreach (FeedEntry item in feed)
-            {
-                Color old = GUI.color;
-                GUI.color = item.Color;
-                GUI.Label(new Rect(24, y, 520, 25), item.Text, smallStyle);
-                GUI.color = old;
-                y += 27f;
-            }
-        }
-
         private void EnsureStyles()
         {
             if (stylesReady) return;
@@ -387,14 +355,6 @@ namespace TikTokLiveGame
                 Name = string.IsNullOrWhiteSpace(name) ? "TikTok user" : name;
                 Score = score;
             }
-        }
-
-        private readonly struct FeedEntry
-        {
-            public readonly string Text;
-            public readonly Color Color;
-            public readonly float Time;
-            public FeedEntry(string text, Color color, float time) { Text = text; Color = color; Time = time; }
         }
 
         private void OnDestroy()

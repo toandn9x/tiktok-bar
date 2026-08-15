@@ -69,10 +69,10 @@ namespace TikTokLiveGame
             focusCrowdWelcome = false;
         }
 
-        public void QueueWelcome(PlayerActor actor, float seconds = 2f)
+        public void QueueWelcome(PlayerActor actor, float seconds = 2f, bool dimCrowd = false)
         {
             if (actor == null) return;
-            WelcomeRequest request = new(actor, Mathf.Clamp(seconds, 2f, 3f));
+            WelcomeRequest request = new(actor, Mathf.Clamp(seconds, 2f, 3f), dimCrowd);
             if (Time.time >= focusUntil && welcomeQueue.Count == 0 && !welcomeOverflow)
             {
                 StartWelcome(request);
@@ -93,6 +93,11 @@ namespace TikTokLiveGame
             focusWide = false;
             focusFireworks = false;
             focusCrowdWelcome = false;
+            if (request.DimCrowd)
+            {
+                if (playerManager == null) playerManager = FindFirstObjectByType<PlayerManager>();
+                playerManager?.FocusPlayer(request.Actor.UserId, request.Seconds);
+            }
         }
 
         private void StartCrowdWelcome()
@@ -238,11 +243,13 @@ namespace TikTokLiveGame
         {
             public PlayerActor Actor { get; }
             public float Seconds { get; }
+            public bool DimCrowd { get; }
 
-            public WelcomeRequest(PlayerActor actor, float seconds)
+            public WelcomeRequest(PlayerActor actor, float seconds, bool dimCrowd)
             {
                 Actor = actor;
                 Seconds = seconds;
+                DimCrowd = dimCrowd;
             }
         }
 
@@ -268,7 +275,6 @@ namespace TikTokLiveGame
             float sweepX = Mathf.Lerp(left, right, side < 0f ? t : 1f - t);
             float mirroredSweepX = centerX * 2f - sweepX;
             float gentleSweepX = Mathf.Lerp(centerX, sweepX, 0.62f);
-            float gentleMirroredSweepX = Mathf.Lerp(centerX, mirroredSweepX, 0.62f);
             float cameraFront = front + 9.5f;
             switch (shot)
             {
@@ -277,15 +283,33 @@ namespace TikTokLiveGame
                     lookAt = new Vector3(0f, 0.95f, middle - 0.25f);
                     fov = Mathf.Lerp(54f, 50f, t);
                     break;
-                case 1: // Sweep every dancer across the front rows.
-                    position = new Vector3(gentleSweepX * 0.58f, 5.1f, cameraFront - 0.25f);
-                    lookAt = new Vector3(gentleSweepX, 1.15f, Mathf.Lerp(front, middle, 0.2f));
-                    fov = 43f;
+                case 1: // Arc around the front rows while keeping the crowd framed.
+                    float frontArcProgress = side < 0f ? t : 1f - t;
+                    float frontArcAngle = Mathf.Lerp(-24f, 24f, frontArcProgress) * Mathf.Deg2Rad;
+                    float frontArcRadius = Mathf.Max(9.5f, cameraFront - middle);
+                    position = new Vector3(
+                        centerX + Mathf.Sin(frontArcAngle) * frontArcRadius,
+                        5.15f + Mathf.Sin(t * Mathf.PI) * 0.35f,
+                        middle + Mathf.Cos(frontArcAngle) * frontArcRadius);
+                    lookAt = new Vector3(
+                        centerX + Mathf.Sin(frontArcAngle) * halfWidth * 0.2f,
+                        1.15f,
+                        Mathf.Lerp(front, middle, 0.2f));
+                    fov = Mathf.Lerp(44f, 42f, Mathf.Sin(t * Mathf.PI));
                     break;
-                case 2: // Sweep the middle rows from the opposite direction.
-                    position = new Vector3(gentleMirroredSweepX * 0.56f, 5.8f, cameraFront + 0.2f);
-                    lookAt = new Vector3(gentleMirroredSweepX, 1.1f, middle);
-                    fov = 44f;
+                case 2: // Return on a slightly tighter reverse arc over the middle rows.
+                    float middleArcProgress = side < 0f ? 1f - t : t;
+                    float middleArcAngle = Mathf.Lerp(-22f, 22f, middleArcProgress) * Mathf.Deg2Rad;
+                    float middleArcRadius = Mathf.Max(8.8f, cameraFront - middle - 1.1f);
+                    position = new Vector3(
+                        centerX + Mathf.Sin(middleArcAngle) * middleArcRadius,
+                        5.8f + Mathf.Sin(t * Mathf.PI) * 0.3f,
+                        middle + Mathf.Cos(middleArcAngle) * middleArcRadius);
+                    lookAt = new Vector3(
+                        centerX - Mathf.Sin(middleArcAngle) * halfWidth * 0.14f,
+                        1.1f,
+                        middle);
+                    fov = Mathf.Lerp(45f, 43f, Mathf.Sin(t * Mathf.PI));
                     break;
                 case 3: // Higher scan dedicated to dancers in the back rows.
                     position = new Vector3(gentleSweepX * 0.46f, 7.5f, cameraFront + 1.1f);

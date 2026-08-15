@@ -64,14 +64,16 @@ function isAllowedHost(value, port, allowLan = false) {
     return new Set([`127.0.0.1:${port}`, `localhost:${port}`, `[::1]:${port}`]).has(host);
 }
 
-function isAllowedOrigin(value, port) {
+function isAllowedOrigin(value, port, allowLan = false, expectedHost = '') {
     if (!value) return true;
     try {
         const origin = new URL(String(value));
         const hostname = origin.hostname.toLowerCase();
-        return origin.protocol === 'http:' &&
-            (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]' || hostname === '::1') &&
-            origin.port === String(port);
+        if (origin.protocol !== 'http:' || origin.port !== String(port)) return false;
+        if (allowLan) {
+            return origin.host.toLowerCase() === String(expectedHost || '').trim().toLowerCase();
+        }
+        return hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]' || hostname === '::1';
     } catch {
         return false;
     }

@@ -499,7 +499,7 @@ namespace TikTokLiveGame
             giftFocusScale = focused ? 1.08f : 1f;
             if (highlightRenderer != null) highlightRenderer.enabled = focused;
             RefreshBadgeVisibility();
-            if (focused && action != ActionState.Walk) Celebrate(3f);
+            if (focused && action != ActionState.Walk && action != ActionState.Jump) Celebrate(3f);
         }
 
         public void ReturnToAssignedSlot()

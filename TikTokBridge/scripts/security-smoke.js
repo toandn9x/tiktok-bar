@@ -83,6 +83,32 @@ async function unregisteredTest() {
     socket.close();
 }
 
+async function masterGiftUsesConfiguredDiamonds() {
+    const socket = new WebSocket(baseUrl, { origin: `http://127.0.0.1:${port}` });
+    const waiters = [];
+    socket.on('message', payload => {
+        const message = JSON.parse(payload.toString());
+        for (let index = waiters.length - 1; index >= 0; index -= 1) {
+            if (waiters[index](message)) waiters.splice(index, 1);
+        }
+    });
+    await new Promise((resolve, reject) => {
+        socket.once('open', resolve);
+        socket.once('error', reject);
+    });
+    socket.send(JSON.stringify({ type: 'register', role: 'control' }));
+    const configMessage = await expectMessage(waiters, message => message.type === 'master_config');
+    const rule = configMessage.master.rules.find(item =>
+        item.enabled && item.source === 'gift' && Number(item.displayDiamonds) > 0);
+    assert.ok(rule, 'Master config must contain an enabled gift rule for the smoke test');
+
+    socket.send(JSON.stringify({ type: 'master_test', ruleId: rule.id }));
+    const event = await expectMessage(waiters, message =>
+        message.type === 'gift' && message.masterRuleId === rule.id);
+    assert.equal(event.diamondCount, Math.max(1, Number(rule.displayDiamonds) || 1));
+    socket.close();
+}
+
 async function main() {
     const local = await httpStatus(`127.0.0.1:${port}`);
     assert.equal(local.status, 200);
@@ -92,6 +118,7 @@ async function main() {
     assert.equal(await foreignOriginStatus(), 403);
     await sameOriginRoleTest();
     await unregisteredTest();
+    await masterGiftUsesConfiguredDiamonds();
     console.log('SECURITY_SMOKE_OK');
 }
 

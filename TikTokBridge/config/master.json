@@ -25,7 +25,7 @@
       "match": "exact",
       "action": "camera",
       "displayDiamonds": 1,
-      "durationMs": 4000,
+      "durationMs": 6000,
       "label": "ZOOM CAMERA",
       "variant": "",
       "fireworkBursts": 0
@@ -121,7 +121,7 @@
       "trigger": "Nhảy, nhảy, dance, Dance",
       "giftId": "",
       "match": "exact",
-      "action": "dance",
+      "action": "jump",
       "displayDiamonds": 0,
       "durationMs": 3000,
       "label": "",

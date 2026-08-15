@@ -12,6 +12,10 @@ const path = require('path');
 const fs = require('fs/promises');
 const WebSocket = require('ws');
 const { TikTokLiveConnection } = require('tiktok-live-connector');
+const { loadEnvFile } = require('./src/load-env');
+
+loadEnvFile(path.join(__dirname, '.env'));
+
 const { normalizeTikFinityMessage } = require('./src/tiktok/normalize-tikfinity-event');
 const {
     normalizeChat,
@@ -26,7 +30,14 @@ const gameConfig = require('./config/game.json');
 const giftConfig = require('./config/gifts.json');
 const initialMasterConfig = require('./config/master.json');
 const initialObservedGifts = require('./config/observed-gifts.json');
-const { normalizeText, sanitizeMasterConfig, resolveMasterRule, applyRule, applyBuiltInChatCommand } = require('./src/master/rules');
+const {
+    normalizeText,
+    sanitizeMasterConfig,
+    resolveMasterRule,
+    applyRule,
+    applyBuiltInChatCommand,
+    masterTestDiamonds
+} = require('./src/master/rules');
 const logger = require('./src/logger');
 const sessions = require('./src/sessions');
 const { createFillerCrowd } = require('./src/filler-crowd');
@@ -913,7 +924,7 @@ async function handleClientMessage(ws, message) {
             giftId: rule.giftId || `master-${rule.id}`,
             giftName: rule.trigger.split(',')[0].trim() || 'Master Gift',
             repeatCount: 1,
-            diamondCount: Math.max(1, Number(message.diamonds) || 1)
+            diamondCount: masterTestDiamonds(rule)
         });
     }
 
@@ -1015,7 +1026,7 @@ server.on('upgrade', (request, socket, head) => {
     const origin = request.headers.origin || '';
     if ((!ALLOW_LAN && !isLoopbackAddress(remoteAddress)) ||
         !isAllowedHost(request.headers.host, PORT, ALLOW_LAN) ||
-        !isAllowedOrigin(origin, PORT)) {
+        !isAllowedOrigin(origin, PORT, ALLOW_LAN, request.headers.host)) {
         return rejectUpgrade(socket);
     }
     wss.handleUpgrade(request, socket, head, ws => wss.emit('connection', ws, request));

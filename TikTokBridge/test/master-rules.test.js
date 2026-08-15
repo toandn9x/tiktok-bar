@@ -1,6 +1,12 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { sanitizeMasterConfig, resolveMasterRule, applyRule, applyBuiltInChatCommand } = require('../src/master/rules');
+const {
+    sanitizeMasterConfig,
+    resolveMasterRule,
+    applyRule,
+    applyBuiltInChatCommand,
+    masterTestDiamonds
+} = require('../src/master/rules');
 
 const master = sanitizeMasterConfig({
     joinMode: 'keyword_only',
@@ -62,6 +68,13 @@ test('luat trong bang Master thang lenh chat dung san', () => {
     const final = applyBuiltInChatCommand(applyRule(event, rule));
     assert.equal(final.action, 'dance', 'lenh dung san khong duoc ghi de luat nguoi dung');
     assert.equal(final.durationMs, 3000, 'phai giu thoi luong cua luat');
+});
+
+test('Master Test dùng đúng diamond hiển thị của luật gift', () => {
+    assert.equal(masterTestDiamonds({ displayDiamonds: 1 }), 1);
+    assert.equal(masterTestDiamonds({ displayDiamonds: 349 }), 349);
+    assert.equal(masterTestDiamonds({ displayDiamonds: 0 }), 1);
+    assert.equal(masterTestDiamonds({ displayDiamonds: 99999999 }), 1000000);
 });
 
 test('lenh dung san van chay khi khong co luat nao khop', () => {

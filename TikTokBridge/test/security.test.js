@@ -16,6 +16,15 @@ test('accepts only local HTTP hosts and origins by default', () => {
     assert.equal(isLoopbackAddress('::ffff:127.0.0.1'), true);
 });
 
+test('ALLOW_LAN chỉ nhận WebSocket cùng origin với Control Panel', () => {
+    assert.equal(isAllowedOrigin(
+        'http://192.168.1.20:3000', 3000, true, '192.168.1.20:3000'), true);
+    assert.equal(isAllowedOrigin(
+        'http://evil.example:3000', 3000, true, '192.168.1.20:3000'), false);
+    assert.equal(isAllowedOrigin(
+        'https://192.168.1.20:3000', 3000, true, '192.168.1.20:3000'), false);
+});
+
 test('sanitizes untrusted TikTok event fields and URLs', () => {
     const event = sanitizeGameEvent({
         type: 'gift',

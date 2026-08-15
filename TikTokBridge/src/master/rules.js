@@ -82,6 +82,10 @@ function applyRule(event, rule) {
     };
 }
 
+function masterTestDiamonds(rule) {
+    return Math.max(1, Math.min(1000000, Number(rule?.displayDiamonds) || 1));
+}
+
 /**
  * Lệnh chat dựng sẵn, chỉ là phương án dự phòng khi người dùng chưa cấu hình gì.
  *
@@ -98,4 +102,11 @@ function applyBuiltInChatCommand(event) {
     return { ...event, action: 'jump', durationMs: 950, masterRuleId: '' };
 }
 
-module.exports = { normalizeText, sanitizeMasterConfig, resolveMasterRule, applyRule, applyBuiltInChatCommand };
+module.exports = {
+    normalizeText,
+    sanitizeMasterConfig,
+    resolveMasterRule,
+    applyRule,
+    applyBuiltInChatCommand,
+    masterTestDiamonds
+};

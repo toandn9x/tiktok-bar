@@ -156,7 +156,7 @@ function createRuleRow(rule) {
     row.querySelector('[data-command="test"]').addEventListener('click', () => {
         const config = readMasterFromUi();
         send({ type: 'master_save', master: config });
-        send({ type: 'master_test', ruleId: row.dataset.ruleId, diamonds: 100 });
+        send({ type: 'master_test', ruleId: row.dataset.ruleId });
         setMasterMessage('Đang test luật trên Unity…');
     });
     updateRuleSource(row);
