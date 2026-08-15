@@ -240,6 +240,13 @@ namespace TikTokLiveGame
             return topRank > 0 ? 1f : 1f + Mathf.Min(0.18f, GiftPower / 3500f);
         }
 
+        private float AvatarVisualScale(float actionPulse = 1f)
+        {
+            // Avatar là nhận diện của chính user nên đi theo tỷ lệ đang hiển thị
+            // của nhân vật. Name/title vẫn dùng identityScale riêng để luôn đọc được.
+            return lineupScale * GiftPowerScale() * giftFocusScale * effectScale * actionPulse;
+        }
+
         private void ApplyEvolution()
         {
             if (titleLabel == null) return;
@@ -381,7 +388,7 @@ namespace TikTokLiveGame
             }
             float displayedCharacterHeight = Mathf.Max(0.1f, VisibleCharacterHeight(characterBaseScale.y * giftFocusScale));
             decorationBadgeY = displayedCharacterHeight + 0.22f;
-            avatarRenderer.transform.localScale = avatarBaseScale * identityScale;
+            avatarRenderer.transform.localScale = avatarBaseScale * AvatarVisualScale();
             nameLabel.transform.localScale = Vector3.one * identityScale;
             float titleScale = titleLabel.text.Length <= 9 ? 0.68f : titleLabel.text.Length <= 14 ? 0.59f : 0.5f;
             titleLabel.transform.localScale = Vector3.one * identityScale * titleScale;
@@ -602,6 +609,7 @@ namespace TikTokLiveGame
             float pulse = action == ActionState.Celebrate ? 1f + Mathf.Sin(time * 16.875f) * 0.08f : 1f;
             Vector3 displayedScale = characterBaseScale * pulse * effectScale * giftFocusScale;
             body.localScale = displayedScale;
+            avatarRenderer.transform.localScale = avatarBaseScale * AvatarVisualScale(pulse);
             float rawHeight = characterRenderer.sprite == null ? 0f : characterRenderer.sprite.bounds.size.y * displayedScale.y;
             float groundOffset = characterRenderer.sprite == null
                 ? 0f
