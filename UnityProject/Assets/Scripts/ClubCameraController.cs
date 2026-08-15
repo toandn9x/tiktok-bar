@@ -232,6 +232,8 @@ namespace TikTokLiveGame
 
         private static float DirectorShotBars(int shot)
         {
+            // Shot mở đầu luôn đúng 1 giây, kể cả khi BPM.txt đổi nhịp.
+            if (shot == 0) return ClubBeatClock.Bpm / 240f;
             if (shot == 5) return 4f;
             if (shot == 6) return 4.5f;
             return 3.5f;
